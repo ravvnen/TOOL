@@ -1,4 +1,4 @@
-# AInema
+# TOOL
 *Team-Governed AI Memory for Coding Assistants*
 
 ## Vision
