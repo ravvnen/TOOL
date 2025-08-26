@@ -34,3 +34,36 @@ Explainability (can we show where a suggestion came from?)
 
 ## How to run the PoC (placeholder)
 See `poc/prototype-1/README.md`.
+
+
+## Overall idea 
+
+```mermaid
+sequenceDiagram
+autonumber
+participant GitCI as Git/CI
+participant R as Receiver.Api
+participant N as NATS (EVENTS/DELTAS)
+participant P as Promoter.Worker
+participant DB as SQLite (IM)
+participant A as Agent A
+participant B as Agent B
+
+
+GitCI->>R: POST /webhook {pr.merged, ci=green, approvals≥1, labels=[architecture]}
+R->>N: PUB evt.pr.merged {...}
+P->>N: SUB evt.* (durable)
+P->>P: Apply Policy (gates pass?)
+alt Gates pass
+P->>DB: Upsert IM v2 (Use Library Y)
+P->>N: PUB delta.im.upsert {itemId, base:1, new:2, evidence}
+else Quarantine
+P->>P: No delta published
+end
+par Agents consume
+A->>N: SUB delta.im.* (durable)
+B->>N: SUB delta.im.* (durable)
+end
+A->>A: Idempotent apply (v2)
+B->>B: Idempotent apply (v2)
+```
