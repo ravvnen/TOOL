@@ -1,0 +1,150 @@
+@host = http://localhost:5080
+@ua = GitHub-Hookshot/test
+
+### Seeded Proposal (matches SeederService format) -> evt.local.test-repo.seed.proposal
+POST {{host}}/api/webhooks/github/v1
+Content-Type: application/json
+User-Agent: {{ua}}
+X-GitHub-Event: seeded_proposal
+X-GitHub-Delivery: {{$guid}}
+
+{
+  "type": "im.proposal.v1",
+  "ns": "local-test",
+  "sha": "seed-test-item-v1",
+  "ci": "n/a",
+  "emitted_at": "2025-09-17T10:30:00.000Z",
+  "item_id": "test-item-001",
+  "title": "Test Proposal Title",
+  "content": "This is test content for a seeded proposal from HTTP request",
+  "labels": ["enhancement", "test", "http-test"],
+  "source": {
+    "kind": "seed-yaml",
+    "repo": "test-repo",
+    "ref": "main",
+    "path": "/test/items/test-item.yaml",
+    "blob_sha": "abc123def456789"
+  }
+}
+
+### Seeded Proposal #2 (identical for deduplication testing) -> evt.local.test-repo.seed.proposal
+POST {{host}}/api/webhooks/github/v1
+Content-Type: application/json
+User-Agent: {{ua}}
+X-GitHub-Event: seeded_proposal
+X-GitHub-Delivery: test-duplicate-delivery-id
+
+{
+  "type": "im.proposal.v1",
+  "ns": "local-test",
+  "sha": "seed-test-item-v1",
+  "ci": "n/a",
+  "emitted_at": "2025-09-17T10:30:00.000Z",
+  "item_id": "test-item-001",
+  "title": "Test Proposal Title",
+  "content": "This is test content for a seeded proposal from HTTP request",
+  "labels": ["enhancement", "test", "http-test"],
+  "source": {
+    "kind": "seed-yaml",
+    "repo": "test-repo",
+    "ref": "main",
+    "path": "/test/items/test-item.yaml",
+    "blob_sha": "abc123def456789"
+  }
+}
+
+### Seeded Proposal with org/repo format -> evt.testorg.my-project.seed.proposal
+POST {{host}}/api/webhooks/github/v1
+Content-Type: application/json
+User-Agent: {{ua}}
+X-GitHub-Event: seeded_proposal
+X-GitHub-Delivery: {{$guid}}
+
+{
+  "type": "im.proposal.v1",
+  "ns": "testorg",
+  "sha": "seed-feature-request-v1",
+  "ci": "n/a",
+  "emitted_at": "2025-09-17T10:35:00.000Z",
+  "item_id": "feature-request-042",
+  "title": "Feature Request from HTTP Test",
+  "content": "Testing org/repo extraction with testorg/my-project format",
+  "labels": ["feature", "api"],
+  "source": {
+    "kind": "seed-yaml",
+    "repo": "testorg/my-project",
+    "ref": "develop",
+    "path": "/items/feature-042.yaml",
+    "blob_sha": "feature123abc456"
+  }
+}
+
+### GitHub Push to main (real structure from ravvnen/test-repo) -> evt.ravvnen.test-repo.push.main
+POST {{host}}/api/webhooks/github/v1
+Content-Type: application/json
+User-Agent: {{ua}}
+X-GitHub-Event: push
+X-GitHub-Delivery: {{$guid}}
+
+{
+  "ref": "refs/heads/main",
+  "before": "613f69a6a1adc4a53ce2723a075b2253e4f8d24b",
+  "after": "faf4f4e6620eee74e33aa524141119ebcb70e3bc",
+  "repository": {
+    "name": "test-repo",
+    "full_name": "ravvnen/test-repo",
+    "owner": {
+      "login": "ravvnen",
+      "id": 35298645
+    }
+  },
+  "commits": [
+    {
+      "id": "faf4f4e6620eee74e33aa524141119ebcb70e3bc",
+      "message": "Update api.auth.yaml",
+      "modified": ["items/api.auth.yaml"],
+      "author": {
+        "name": "Phillip Ravn",
+        "email": "35298645+ravvnen@users.noreply.github.com"
+      }
+    }
+  ],
+  "head_commit": {
+    "id": "faf4f4e6620eee74e33aa524141119ebcb70e3bc",
+    "message": "Update api.auth.yaml",
+    "modified": ["items/api.auth.yaml"]
+  }
+}
+
+### GitHub Push to feature branch -> evt.testorg.test-repo.push.branch
+POST {{host}}/api/webhooks/github/v1
+Content-Type: application/json
+User-Agent: {{ua}}
+X-GitHub-Event: push
+X-GitHub-Delivery: {{$guid}}
+
+{
+  "ref": "refs/heads/feature/new-api",
+  "before": "abc123",
+  "after": "xyz789",
+  "repository": { 
+    "name": "test-repo", 
+    "owner": { "login": "testorg" } 
+  },
+  "commits": [
+    {
+      "id": "xyz789",
+      "message": "Work in progress on new API",
+      "author": { "name": "Developer", "email": "dev@example.com" }
+    }
+  ]
+}
+
+### Bad payload (should return 400)
+POST {{host}}/api/webhooks/github/v1
+Content-Type: application/json
+User-Agent: {{ua}}
+X-GitHub-Event: seeded_proposal
+X-GitHub-Delivery: {{$guid}}
+
+{ "invalid": "payload without required fields" }
