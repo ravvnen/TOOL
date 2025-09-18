@@ -33,3 +33,33 @@ artifacts/
 
 # dotenv environment variables
 .env
+
+# --- NATS / JetStream runtime data (do NOT commit) ---
+nats_store/
+jetstream/
+nats-data/
+nats-data*/
+**/nats_store/
+**/jetstream/
+**/nats-data*/
+*.pid
+*.log
+
+# If you bind-mount local volumes for containers
+.data/
+.volumes/
+.local-nats/
+tmp/nats/
+
+# --- NATS credentials & security material (keep out of git) ---
+# NATS nkey/creds/JWT files
+*.creds
+*.nk
+*.nkey
+*.seed
+*.jwt
+
+# TLS private keys (public certs are fine to commit only if you intend to)
+*.key
+*-key.pem
+*.p12
