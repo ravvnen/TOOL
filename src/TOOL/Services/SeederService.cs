@@ -20,7 +20,7 @@ public class SeederService
     public SeederService(HttpClient httpClient)
     {
         _http = httpClient;
-        _receiverUrl = Environment.GetEnvironmentVariable("RECEIVER_URL") ?? "http://localhost:5080/api/webhooks/github/v1";
+        _receiverUrl = Environment.GetEnvironmentVariable("RECEIVER_URL") ?? "http://localhost:5080/api/v1/seeded-proposal";
         _namespace   = Environment.GetEnvironmentVariable("TEAMAI_NS") ?? "ravvnen.consulting";
         _repo        = Environment.GetEnvironmentVariable("GITHUB_REPOSITORY") ?? "github.com/ravvnen/test-repo";
         _gitRef      = Environment.GetEnvironmentVariable("GITHUB_REF") ?? "refs/heads/main";
@@ -108,7 +108,7 @@ public class SeederService
                     labels,
                     source = new
                     {
-                        kind = "seed-yaml",
+                        kind = "seeded", // "seeded" or "gh-webhook"
                         repo = _repo,
                         @ref = _gitRef,                   // '@ref' → JSON "ref"
                         path = file.Replace('\\', '/'),
