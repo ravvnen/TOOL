@@ -122,6 +122,7 @@ public sealed class WebhookService(NatsJSContext js) : IWebhookService
             cancellationToken: ct);
         
         Console.WriteLine($"[Webhook] Published to '{subject}' (stream={ack.Stream}, seq={ack.Seq})");
+        
         return new PublishResult(true, subject, ack.Stream, ack.Seq);
     }
 }
