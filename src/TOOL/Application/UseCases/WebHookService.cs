@@ -44,7 +44,7 @@ public sealed class WebhookService(NatsJSContext js) : IWebhookService
             
             // For seeded events, extract from source.repo format
             if (!body.TryGetProperty("source", out var sourceEl) ||
-                !sourceEl.TryGetProperty("repo", out var sourceRepoEl))
+                !sourceEl.TryGetProperty("repoUrl", out var sourceRepoEl))
                 throw new BadHttpRequestException("Missing source.repo for seeded event");
                 
             var sourceRepo = sourceRepoEl.GetString() ?? throw new BadHttpRequestException("source.repo is null");

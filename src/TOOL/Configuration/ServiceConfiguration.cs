@@ -21,11 +21,11 @@ public static class ServiceConfiguration
         builder.Services.AddSingleton(sp => new NatsJSContext(sp.GetRequiredService<NatsConnection>()));
 
         // HTTP client for external calls
-        builder.Services.AddHttpClient<SeederService>();
+        builder.Services.AddHttpClient<DataSeeder>();
 
         // Domain services
         builder.Services.AddSingleton<IWebhookService, WebhookService>();
-        builder.Services.AddSingleton<SeederService>();
+        builder.Services.AddSingleton<DataSeeder>();
 
         // Stream bootstrappers
         builder.Services.AddSingleton<IHostedService>(sp => new StreamBootstrapper(

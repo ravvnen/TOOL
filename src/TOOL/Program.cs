@@ -8,7 +8,7 @@ if (args.Contains("--seed-only"))
 {
     var app = builder.Build();
     using var scope = app.Services.CreateScope();
-    var seeder = scope.ServiceProvider.GetRequiredService<SeederService>();
+    var seeder = scope.ServiceProvider.GetRequiredService<DataSeeder>();
     seeder.ConfirmReady();
     await seeder.SeedAllAsync();
     Console.WriteLine("[Program] Seeding complete. Exiting.");
@@ -21,7 +21,7 @@ var webApp = builder.Build();
 if (args.Contains("--onboard"))
 {
     using var scope = webApp.Services.CreateScope();
-    await OnboardingService.RunAsync(scope.ServiceProvider);
+    await OnboardingHelper.RunAsync(scope.ServiceProvider);
 }
 
 webApp.MapControllers();

@@ -6,23 +6,23 @@ using YamlDotNet.Serialization.NamingConventions;
 
 namespace TOOL;
 
-public class SeederService
+public class DataSeeder
 {
     private readonly HttpClient _http;
     private readonly string _receiverUrl;
     private readonly string _namespace;
-    private readonly string _repo;
+    private readonly string _repoUrl;
     private readonly string _gitRef;
     private readonly string _itemsFolder;
     private readonly string _bearerToken;
     private readonly IDeserializer _yaml;
 
-    public SeederService(HttpClient httpClient)
+    public DataSeeder(HttpClient httpClient)
     {
         _http = httpClient;
         _receiverUrl = Environment.GetEnvironmentVariable("RECEIVER_URL") ?? "http://localhost:5080/api/v1/seeded-proposal";
         _namespace   = Environment.GetEnvironmentVariable("TEAMAI_NS") ?? "ravvnen.consulting";
-        _repo        = Environment.GetEnvironmentVariable("GITHUB_REPOSITORY") ?? "github.com/ravvnen/test-repo";
+        _repoUrl     = Environment.GetEnvironmentVariable("GITHUB_REPOSITORY") ?? "github.com/ravvnen/test-repo";
         _gitRef      = Environment.GetEnvironmentVariable("GITHUB_REF") ?? "refs/heads/main";
         _itemsFolder = Environment.GetEnvironmentVariable("TEAMAI_ITEMS_DIR") ?? "/Users/ravvnen/Masters/test-repo/items";
         _bearerToken = Environment.GetEnvironmentVariable("TEAMAI_TOKEN") ?? "dev-token";
@@ -109,7 +109,7 @@ public class SeederService
                     source = new
                     {
                         kind = "seeded", // "seeded" or "gh-webhook"
-                        repo = _repo,
+                        repoUrl = _repoUrl,
                         @ref = _gitRef,                   // '@ref' → JSON "ref"
                         path = file.Replace('\\', '/'),
                         blob_sha = blobHash

@@ -9,7 +9,7 @@ namespace TOOL;
 /// Interactive onboarding helper. Call manually (e.g. when passing a --onboard flag) BEFORE starting the web host.
 /// Not invoked automatically to avoid blocking the HTTP server with console input.
 /// </summary>
-public static class OnboardingService
+public static class OnboardingHelper
 {
     public static async Task RunAsync(IServiceProvider services, CancellationToken ct = default)
     {

@@ -20,7 +20,7 @@ X-GitHub-Delivery: {{$guid}}
   "labels": ["enhancement", "test", "http-test"],
   "source": {
     "kind": "seed-yaml",
-    "repo": "test-repo",
+    "repoUrl": "github.com/ravvnen/test-repo",
     "ref": "main",
     "path": "/test/items/test-item.yaml",
     "blob_sha": "abc123def456789"
