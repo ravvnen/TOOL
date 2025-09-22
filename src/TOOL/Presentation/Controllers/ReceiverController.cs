@@ -7,7 +7,7 @@ namespace TOOL;
 [Route("api/v1")]
 public class ReceiverController(IWebhookService webhookService) : ControllerBase
 {
-    [HttpPost("seeded-proposal")]
+    [HttpPost("seed-proposal")]
     public async Task<IActionResult> SeededProposal(
 
         [FromBody] JsonElement payload,

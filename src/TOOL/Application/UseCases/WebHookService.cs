@@ -26,13 +26,13 @@ public sealed class WebhookService(NatsJSContext js) : IWebhookService
     {
         // 1) accept only the events you handle for now , which is seeding and pushes
         if (!string.Equals(eventName, "push", StringComparison.OrdinalIgnoreCase) && 
-            !string.Equals(eventName, "seeded_proposal", StringComparison.OrdinalIgnoreCase))
+            !string.Equals(eventName, "seed-proposal", StringComparison.OrdinalIgnoreCase))
             throw new BadHttpRequestException($"Unsupported X-GitHub-Event '{eventName}'");
 
         // 2) map to a subject (dynamic-safe) - handle both GitHub webhook and seeded formats
         string org, repo;
-        
-        if (string.Equals(eventName, "seeded_proposal", StringComparison.OrdinalIgnoreCase))
+
+        if (string.Equals(eventName, "seed-proposal", StringComparison.OrdinalIgnoreCase))
         {
             // Validation for seeded proposals
             if (!body.TryGetProperty("ns", out var nsEl))    throw new BadHttpRequestException("ns required");
@@ -80,7 +80,7 @@ public sealed class WebhookService(NatsJSContext js) : IWebhookService
             var isMainBranch = refName?.EndsWith("/main") == true || refName?.EndsWith("/master") == true;
             eventType = isMainBranch ? "push.main" : "push.branch";
         }
-        else if (string.Equals(eventName, "seeded_proposal", StringComparison.OrdinalIgnoreCase))
+        else if (string.Equals(eventName, "seed-proposal", StringComparison.OrdinalIgnoreCase))
         {
             // For seeded proposals, use the item_id or type from the payload
             var itemType = body.TryGetProperty("type", out var typeEl) ? typeEl.GetString() : "proposal";
@@ -99,7 +99,7 @@ public sealed class WebhookService(NatsJSContext js) : IWebhookService
         
         // Compute deterministic Msg-Id for idempotency
         string msgId;
-        if (string.Equals(eventName, "seeded_proposal", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(eventName, "seed-proposal", StringComparison.OrdinalIgnoreCase))
         {
             // For seeded content, use the deterministic sha field for idempotency
             var sha = body.TryGetProperty("sha", out var shaEl) ? shaEl.GetString() : "unknown-sha";

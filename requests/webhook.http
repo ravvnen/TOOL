@@ -1,11 +1,11 @@
 @host = http://localhost:5080
 @ua = GitHub-Hookshot/test
 
-### Seeded Proposal (matches SeederService format) -> evt.local.test-repo.seed.proposal
-POST {{host}}/api/webhooks/github/v1
+### Seeded Proposal (matches DataSeeder format) -> evt.local.test-repo.seed.proposal
+POST {{host}}/api/v1/seed-proposal
 Content-Type: application/json
 User-Agent: {{ua}}
-X-GitHub-Event: seeded_proposal
+X-GitHub-Event: seed-proposal
 X-GitHub-Delivery: {{$guid}}
 
 {
