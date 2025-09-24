@@ -63,3 +63,7 @@ tmp/nats/
 *.key
 *-key.pem
 *.p12
+
+promoter.db
+promoter.db-*
+

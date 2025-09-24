@@ -9,6 +9,8 @@
   <ItemGroup>
     <PackageReference Include="NATS.Net" Version="2.6.8" />
     <PackageReference Include="YamlDotNet" Version="12.0.1" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.7" />
+    <PackageReference Include="Dapper" Version="2.1.35" />
   </ItemGroup>
 
 </Project>

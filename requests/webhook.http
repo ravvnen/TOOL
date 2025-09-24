@@ -2,15 +2,15 @@
 @ua = GitHub-Hookshot/test
 
 ### Seeded Proposal (matches DataSeeder format) -> evt.local.test-repo.seed.proposal
-POST {{host}}/api/v1/seed-proposal
+POST {{host}}/api/v1/seed
 Content-Type: application/json
 User-Agent: {{ua}}
 X-GitHub-Event: seed-proposal
 X-GitHub-Delivery: {{$guid}}
 
 {
-  "type": "im.proposal.v1",
-  "ns": "local-test",
+  "event_type": "im.proposal.v1",
+  "ns": "locat-test",
   "sha": "seed-test-item-v1",
   "ci": "n/a",
   "emitted_at": "2025-09-17T10:30:00.000Z",
@@ -19,8 +19,8 @@ X-GitHub-Delivery: {{$guid}}
   "content": "This is test content for a seeded proposal from HTTP request",
   "labels": ["enhancement", "test", "http-test"],
   "source": {
-    "kind": "seed-yaml",
-    "repoUrl": "github.com/ravvnen/test-repo",
+    "kind": "seeded",
+    "repo_url": "github.com/ravvnen/test-repo",
     "ref": "main",
     "path": "/test/items/test-item.yaml",
     "blob_sha": "abc123def456789"
@@ -46,7 +46,7 @@ X-GitHub-Delivery: test-duplicate-delivery-id
   "labels": ["enhancement", "test", "http-test"],
   "source": {
     "kind": "seed-yaml",
-    "repo": "test-repo",
+    "repo_url": "test-repo",
     "ref": "main",
     "path": "/test/items/test-item.yaml",
     "blob_sha": "abc123def456789"

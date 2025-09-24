@@ -20,7 +20,7 @@ public class DataSeeder
     public DataSeeder(HttpClient httpClient)
     {
         _http = httpClient;
-        _receiverUrl = Environment.GetEnvironmentVariable("RECEIVER_URL") ?? "http://localhost:5080/api/v1/seeded-proposal";
+        _receiverUrl = Environment.GetEnvironmentVariable("RECEIVER_URL") ?? "http://localhost:5080/api/v1/seed";
         _namespace   = Environment.GetEnvironmentVariable("TEAMAI_NS") ?? "ravvnen.consulting";
         _repoUrl     = Environment.GetEnvironmentVariable("GITHUB_REPOSITORY") ?? "github.com/ravvnen/test-repo";
         _gitRef      = Environment.GetEnvironmentVariable("GITHUB_REF") ?? "refs/heads/main";
@@ -97,7 +97,7 @@ public class DataSeeder
 
                 var ev = new
                 {
-                    type = "im.proposal.v1",
+                    event_type = "im.proposal.v1",
                     ns = _namespace,
                     sha = $"seed-{itemId}-v1",          // deterministic seed id
                     ci = "n/a",
@@ -109,7 +109,7 @@ public class DataSeeder
                     source = new
                     {
                         kind = "seeded", // "seeded" or "gh-webhook"
-                        repoUrl = _repoUrl,
+                        repo_url = _repoUrl,
                         @ref = _gitRef,                   // '@ref' → JSON "ref"
                         path = file.Replace('\\', '/'),
                         blob_sha = blobHash

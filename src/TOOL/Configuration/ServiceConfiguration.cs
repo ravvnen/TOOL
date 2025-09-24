@@ -2,6 +2,7 @@ using NATS.Client.Core;
 using NATS.Client.JetStream;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using TOOL.UseCases.SeedProposal;
 namespace TOOL;
 
 /// <summary>
@@ -24,7 +25,7 @@ public static class ServiceConfiguration
         builder.Services.AddHttpClient<DataSeeder>();
 
         // Domain services
-        builder.Services.AddSingleton<IWebhookService, WebhookService>();
+        builder.Services.AddSingleton<ISeedHandler, SeedHandler>();
         builder.Services.AddSingleton<DataSeeder>();
 
         // Stream bootstrappers
@@ -32,5 +33,13 @@ public static class ServiceConfiguration
             sp.GetRequiredService<NatsJSContext>(), "EVENTS", new[] { "evt.>" }));
         builder.Services.AddSingleton<IHostedService>(sp => new StreamBootstrapper(
             sp.GetRequiredService<NatsJSContext>(), "DELTAS", new[] { "delta.>" }));
+
+        // Promoter (optional)
+        var promoterEnabled = (Environment.GetEnvironmentVariable("PROMOTER_ENABLED") ?? "true").Equals("true", StringComparison.OrdinalIgnoreCase);
+        if (promoterEnabled)
+        {
+            builder.Services.AddSingleton<IHostedService>(sp =>
+                new Promoter(sp.GetRequiredService<NatsJSContext>(), sp.GetRequiredService<ILogger<Promoter>>()));
+        }
     }
 }
