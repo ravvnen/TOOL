@@ -18,7 +18,7 @@ public sealed record SeedDto
     [JsonPropertyName("source")] public required SourceInfo Source { get; init; }
     public void Validate()
     {
-        if (EventType != "im.proposal.v1") throw new ArgumentException("Invalid EventType, must be 'im.proposal.v1'");
+        if (EventType != "im.proposal.v1" ) throw new ArgumentException("Invalid EventType, must be 'im.proposal.v1'");
         if (string.IsNullOrWhiteSpace(Ns)) throw new ArgumentException("Ns is required");
         if (string.IsNullOrWhiteSpace(Sha)) throw new ArgumentException("Sha is required");
         if (string.IsNullOrWhiteSpace(Ci)) throw new ArgumentException("Ci is required");

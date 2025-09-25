@@ -9,8 +9,8 @@ X-GitHub-Event: seed-proposal
 X-GitHub-Delivery: {{$guid}}
 
 {
-  "event_type": "im.proposal.v1",
-  "ns": "locat-test",
+  "event_type": "im.seed.v1",
+  "ns": "ravvnen.consulting",
   "sha": "seed-test-item-v1",
   "ci": "n/a",
   "emitted_at": "2025-09-17T10:30:00.000Z",

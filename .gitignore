@@ -66,4 +66,6 @@ tmp/nats/
 
 promoter.db
 promoter.db-*
+*.db
+*.db-*
 

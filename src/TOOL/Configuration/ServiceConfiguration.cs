@@ -33,6 +33,8 @@ public static class ServiceConfiguration
             sp.GetRequiredService<NatsJSContext>(), "EVENTS", new[] { "evt.>" }));
         builder.Services.AddSingleton<IHostedService>(sp => new StreamBootstrapper(
             sp.GetRequiredService<NatsJSContext>(), "DELTAS", new[] { "delta.>" }));
+        builder.Services.AddSingleton<IHostedService>(sp => new StreamBootstrapper(
+            sp.GetRequiredService<NatsJSContext>(), "AUDITS", new[] { "audit.>" }));
 
         // Promoter (optional)
         var promoterEnabled = (Environment.GetEnvironmentVariable("PROMOTER_ENABLED") ?? "true").Equals("true", StringComparison.OrdinalIgnoreCase);

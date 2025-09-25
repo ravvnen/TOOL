@@ -23,7 +23,7 @@ public class DataSeeder
         _receiverUrl = Environment.GetEnvironmentVariable("RECEIVER_URL") ?? "http://localhost:5080/api/v1/seed";
         _namespace   = Environment.GetEnvironmentVariable("TEAMAI_NS") ?? "ravvnen.consulting";
         _repoUrl     = Environment.GetEnvironmentVariable("GITHUB_REPOSITORY") ?? "github.com/ravvnen/test-repo";
-        _gitRef      = Environment.GetEnvironmentVariable("GITHUB_REF") ?? "refs/heads/main";
+        _gitRef      = Environment.GetEnvironmentVariable("GITHUB_REF") ?? "main";
         _itemsFolder = Environment.GetEnvironmentVariable("TEAMAI_ITEMS_DIR") ?? "/Users/ravvnen/Masters/test-repo/items";
         _bearerToken = Environment.GetEnvironmentVariable("TEAMAI_TOKEN") ?? "dev-token";
 
