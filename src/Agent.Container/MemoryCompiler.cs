@@ -27,20 +27,48 @@ public sealed class MemoryCompiler
             return items;
         }
 
-        // fallback: naive LIKE + keyword count
-        var rows2 = await db.QueryAsync<(string Id,string Title,string Content,int Version)>(
-            @"SELECT item_id as Id, title as Title, content as Content, version as Version
-              FROM im_items_current
-              WHERE ns=@ns AND is_active=1 AND (title LIKE @p OR content LIKE @p)
-              ORDER BY version DESC LIMIT @k",
-            new { ns, p = "%" + prompt + "%", k = topK * 3 });
+        // Fallback: tokenize prompt and build OR LIKE clauses per token for recall.
+        var rawTokens = Regex.Matches(prompt.ToLowerInvariant(), @"\w+").Select(m => m.Value).ToList();
+        var tokensDistinct = rawTokens.Where(t => t.Length > 1).Distinct().Take(10).ToArray();
 
-        // score & pick topK deterministically
-        var tokens = Regex.Matches(prompt.ToLowerInvariant(), @"\w+").Select(m => m.Value).Take(10).ToArray();
+        IEnumerable<(string Id,string Title,string Content,int Version)> rows2;
+        if (tokensDistinct.Length == 0)
+        {
+            // Nothing meaningful to split; revert to whole-prompt LIKE
+            rows2 = await db.QueryAsync<(string Id,string Title,string Content,int Version)>(
+                @"SELECT item_id as Id, title as Title, content as Content, version as Version
+                  FROM im_items_current
+                  WHERE ns=@ns AND is_active=1 AND (title LIKE @p OR content LIKE @p)
+                  ORDER BY version DESC LIMIT @k",
+                new { ns, p = "%" + prompt + "%", k = topK * 5 });
+        }
+        else
+        {
+            // Build dynamic OR clause
+            var likeClauses = new List<string>();
+            var dynParams = new DynamicParameters();
+            dynParams.Add("ns", ns);
+            dynParams.Add("k", topK * 5); // oversample more now that matching is more selective
+            for (int i = 0; i < tokensDistinct.Length; i++)
+            {
+                var param = "p" + i;
+                likeClauses.Add($"(title LIKE @{param} OR content LIKE @{param})");
+                dynParams.Add(param, "%" + tokensDistinct[i] + "%");
+            }
+            var where = string.Join(" OR ", likeClauses);
+            var sql = $@"SELECT item_id as Id, title as Title, content as Content, version as Version
+                          FROM im_items_current
+                          WHERE ns=@ns AND is_active=1 AND ({where})
+                          ORDER BY version DESC LIMIT @k";
+            rows2 = await db.QueryAsync<(string Id,string Title,string Content,int Version)>(sql, dynParams);
+        }
+
+        // Score & select deterministically
+        var scoringTokens = tokensDistinct.Length > 0 ? tokensDistinct : rawTokens.Take(10).ToArray();
         var scored = rows2
             .Select(r => new {
                 Row = r,
-                Score = Score(r.Title + " " + r.Content, tokens) + (r.Version * 0.01) // tiny recency bias
+                Score = Score(r.Title + " " + r.Content, scoringTokens) + (r.Version * 0.01)
             })
             .OrderByDescending(x => x.Score)
             .ThenBy(x => x.Row.Id)
@@ -55,6 +83,9 @@ public sealed class MemoryCompiler
 
     public object BuildMemoryJson(string ns, List<MemoryItem> items)
     {
+        var emptyNote = items.Count == 0
+            ? "No matching rules. Check namespace, seeding, or adjust prompt keywords."
+            : null;
         return new {
             ns,
             generated_at = DateTimeOffset.UtcNow.ToString("o"),
@@ -68,7 +99,8 @@ public sealed class MemoryCompiler
                     path = i.Source.Path,
                     blob_sha = i.Source.BlobSha
                 }
-            }).ToArray()
+            }).ToArray(),
+            note = emptyNote
         };
     }
 

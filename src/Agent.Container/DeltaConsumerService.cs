@@ -229,7 +229,6 @@ public sealed class DeltaConsumerService : BackgroundService
                 try { await msg.NakAsync(); } catch {}
             }
         }
-
         _log.LogInformation("Agent: DeltaConsumerService shutting down ns={ns} durable={durable}", _cfg.Ns, durable);
     }
 }

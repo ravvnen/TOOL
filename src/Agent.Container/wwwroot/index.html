@@ -64,30 +64,30 @@
     }
 
     function TopBar() {
-      const [state, setState] = React.useState(null);
-      const api = useApi();
+    const [state, setState] = React.useState(null);
+    const api = useApi();
 
-      const load = async () => setState(await api.get('/debug/status'));
-      React.useEffect(()=>{ load(); const t=setInterval(load, 3000); return ()=>clearInterval(t); }, []);
+    const load = async () => setState(await api.get('/debug/status'));
+    React.useEffect(()=>{ load(); const t=setInterval(load, 3000); return ()=>clearInterval(t); }, []);
 
-      const color = (state?.state === 'Ready') ? '#10b981' :
-                    (state?.state === 'Connecting') ? '#f59e0b' :
-                    (state?.state === 'Degraded') ? '#f59e0b' : '#ef4444';
+    const color = (state?.state === 'Ready') ? '#10b981' :
+                  (state?.state === 'Connecting') ? '#f59e0b' :
+                  (state?.state === 'Degraded') ? '#f59e0b' : '#ef4444';
 
-      return (
-        <div className="row" style={{justifyContent:'space-between', marginBottom:16}}>
-          <div className="row" style={{gap:8, alignItems:'center'}}>
-            <div className="pill" style={{borderColor:color, color}}>
-              {state?.state ?? '—'}{state?.details?.ns ? ` · ${state.details.ns}` : ''}
-            </div>
-            {state?.details?.db && <div className="pill">DB: {state.details.db}</div>}
-            {state?.details?.nats && <div className="pill">NATS: {state.details.nats}</div>}
-            {state?.details?.durable && <div className="pill">Durable: {state.details.durable}</div>}
+    return (
+      <div className="row" style={{justifyContent:'space-between', marginBottom:16}}>
+        <div className="row" style={{gap:8, alignItems:'center'}}>
+          <div className="pill" style={{borderColor:color, color}}>
+            {state?.state ?? '—'}{state?.details?.ns ? ` · ${state.details.ns}` : ''}
           </div>
-          <div className="muted" title={state?.message}>{state?.message ?? '—'}</div>
+          {state?.details?.db && <div className="pill">DB: {state.details.db}</div>}
+          {state?.details?.nats && <div className="pill">NATS: {state.details.nats}</div>}
+          {state?.details?.durable && <div className="pill">Durable: {state.details.durable}</div>}
         </div>
-      );
-    }
+        <div className="muted" title={state?.message}>{state?.message ?? '—'}</div>
+      </div>
+    );
+  }
 
     function SearchPanel({onInsert}) {
       const api = useApi();
