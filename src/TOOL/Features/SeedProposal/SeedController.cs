@@ -6,7 +6,7 @@ namespace TOOL.UseCases.SeedProposal;
 
 [ApiController]
 [Route("api/v1")]
-public class SeedController(ISeedHandler seedHandler) : ControllerBase
+public class SeedController(SeedHandler seedHandler) : ControllerBase
 {
     [HttpPost("seed")]
     [Consumes("application/json")]

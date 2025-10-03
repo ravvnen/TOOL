@@ -22,7 +22,7 @@ public sealed class DeltaConsumerService : BackgroundService
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         await using var db = _sf.Open(_cfg.DbPath);
-
+    
         // --- Ensure schema exists (idempotent) ---
         await db.ExecuteAsync("""
             PRAGMA journal_mode = WAL;
@@ -79,7 +79,8 @@ public sealed class DeltaConsumerService : BackgroundService
         _log.LogInformation("Agent: starting DeltaConsumerService ns={ns} durable={durable} nats={url}", _cfg.Ns, durable, _cfg.NatsUrl);
 
         var consumer = await _js.CreateOrUpdateConsumerAsync("DELTAS", new ConsumerConfig {
-            DurableName = durable, Name = durable,
+            DurableName = durable,
+            Name = durable,
             FilterSubject = "delta.>",
             DeliverPolicy = ConsumerConfigDeliverPolicy.All,
             AckPolicy = ConsumerConfigAckPolicy.Explicit,

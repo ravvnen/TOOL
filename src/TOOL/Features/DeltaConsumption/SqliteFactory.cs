@@ -1,7 +1,7 @@
 using Dapper;
 using Microsoft.Data.Sqlite;
 
-namespace Agent.Container;
+namespace Delta.Consumption;
 
 // Renamed to avoid ambiguity with Microsoft.Data.Sqlite.SqliteFactory
 public sealed class AppSqliteFactory

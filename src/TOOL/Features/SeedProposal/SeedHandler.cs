@@ -4,7 +4,7 @@ using NATS.Client.JetStream;
 
 namespace TOOL.UseCases.SeedProposal;
 
-public sealed class SeedHandler : ISeedHandler
+public sealed class SeedHandler
 {
     private readonly NatsJSContext _js;
     private readonly ILogger<SeedHandler> _log;
