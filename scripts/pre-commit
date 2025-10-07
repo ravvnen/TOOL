@@ -1,0 +1,28 @@
+#!/bin/bash
+# Pre-commit hook for TOOL project
+# Runs format check before allowing commit
+
+set -e
+
+echo "🪝 Running pre-commit checks..."
+echo ""
+
+# Check code formatting with CSharpier
+CSHARPIER="$HOME/.dotnet/tools/csharpier"
+if [ ! -f "$CSHARPIER" ]; then
+    echo "⚠️  CSharpier not found, skipping format check"
+    echo "💡 Run 'dotnet tool install -g csharpier' to install"
+    exit 0
+fi
+
+if ! "$CSHARPIER" check . > /dev/null 2>&1; then
+    echo "❌ Code formatting check failed!"
+    echo "💡 Run 'make format' to fix formatting."
+    echo ""
+    exit 1
+fi
+
+echo "✅ Format OK - ready to commit! 🚀"
+echo ""
+
+exit 0

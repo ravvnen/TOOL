@@ -24,5 +24,10 @@ if (args.Contains("--onboard"))
     await OnboardingHelper.RunAsync(scope.ServiceProvider);
 }
 
+// Enable CORS for Agent.Container communication
+webApp.UseCors();
 webApp.MapControllers();
 webApp.Run();
+
+// Make Program accessible for integration tests
+public partial class Program { }
