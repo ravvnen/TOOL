@@ -6,7 +6,13 @@ public interface ISeedHandler
         SeedDto dto,
         string rawJson,
         string? deliveryId,
-        CancellationToken ct = default);
+        CancellationToken ct = default
+    );
 }
 
-public readonly record struct PublishResult(bool Stored, string Subject, string? Stream, ulong? Seq);
+public readonly record struct PublishResult(
+    bool Stored,
+    string Subject,
+    string? Stream,
+    ulong? Seq
+);

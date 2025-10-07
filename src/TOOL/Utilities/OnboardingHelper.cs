@@ -1,8 +1,9 @@
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using NATS.Client.Core;
 using NATS.Client.JetStream;
 using NATS.Client.JetStream.Models;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
+
 namespace TOOL;
 
 /// <summary>
@@ -23,7 +24,8 @@ public static class OnboardingHelper
             Console.WriteLine("Purging JetStream streams...");
             foreach (var stream in new[] { "EVENTS", "DELTAS" })
             {
-                if (ct.IsCancellationRequested) return;
+                if (ct.IsCancellationRequested)
+                    return;
                 try
                 {
                     await jsContext.PurgeStreamAsync(stream, new StreamPurgeRequest(), ct);
@@ -35,7 +37,5 @@ public static class OnboardingHelper
                 }
             }
         }
-
-        
     }
 }
