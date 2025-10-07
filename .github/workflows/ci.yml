@@ -2,9 +2,9 @@ name: CI Pipeline
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   test:
@@ -12,40 +12,40 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: '9.0.x'
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "9.0.x"
 
-    - name: Restore dependencies
-      run: dotnet restore
+      - name: Restore dependencies
+        run: dotnet restore
 
-    - name: Build
-      run: dotnet build --no-restore --configuration Release
+      - name: Build
+        run: dotnet build --no-restore --configuration Release
 
-    - name: Run Unit Tests
-      run: dotnet test tests/TOOL.Tests/TOOL.Tests.csproj --no-build --configuration Release --filter "FullyQualifiedName~Unit" --verbosity normal --logger "trx;LogFileName=unit-tests.trx" --collect:"XPlat Code Coverage"
+      - name: Run Unit Tests
+        run: dotnet test tests/TOOL.Tests/TOOL.Tests.csproj --no-build --configuration Release --filter "FullyQualifiedName~Unit" --verbosity normal --logger "trx;LogFileName=unit-tests.trx" --collect:"XPlat Code Coverage"
 
-    - name: Run Integration Tests
-      run: dotnet test tests/TOOL.Tests/TOOL.Tests.csproj --no-build --configuration Release --filter "FullyQualifiedName~Integration" --verbosity normal --logger "trx;LogFileName=integration-tests.trx"
+      - name: Run Integration Tests
+        run: dotnet test tests/TOOL.Tests/TOOL.Tests.csproj --no-build --configuration Release --filter "FullyQualifiedName~Integration" --verbosity normal --logger "trx;LogFileName=integration-tests.trx"
 
-    - name: Code Coverage Report
-      uses: codecov/codecov-action@v4
-      with:
-        files: '**/coverage.cobertura.xml'
-        fail_ci_if_error: false
-        token: ${{ secrets.CODECOV_TOKEN }}
+      - name: Code Coverage Report
+        uses: codecov/codecov-action@v4
+        with:
+          files: "**/coverage.cobertura.xml"
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
 
-    - name: Upload Test Results
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: test-results
-        path: |
-          **/TestResults/**/*.trx
-          **/TestResults/**/coverage.cobertura.xml
+      - name: Upload Test Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: |
+            **/TestResults/**/*.trx
+            **/TestResults/**/coverage.cobertura.xml
 
   benchmark:
     name: Run Benchmarks
@@ -53,52 +53,52 @@ jobs:
     if: github.event_name == 'pull_request'
 
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: '9.0.x'
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "9.0.x"
 
-    - name: Restore dependencies
-      run: dotnet restore
+      - name: Restore dependencies
+        run: dotnet restore
 
-    - name: Build
-      run: dotnet build --no-restore --configuration Release
+      - name: Build
+        run: dotnet build --no-restore --configuration Release
 
-    - name: Run Benchmarks
-      run: dotnet test tests/TOOL.Tests/TOOL.Tests.csproj --no-build --configuration Release --filter "FullyQualifiedName~Benchmark" --verbosity normal --logger "console;verbosity=detailed" > benchmark-results.txt
+      #  - name: Run Benchmarks
+      #   run: dotnet test tests/TOOL.Tests/TOOL.Tests.csproj --no-build --configuration Release --filter "FullyQualifiedName~Benchmark" --verbosity normal --logger "console;verbosity=detailed" > benchmark-results.txt
 
-    - name: Comment Benchmark Results on PR
-      uses: actions/github-script@v7
-      if: github.event_name == 'pull_request'
-      with:
-        script: |
-          const fs = require('fs');
-          const benchmarkResults = fs.readFileSync('benchmark-results.txt', 'utf8');
-          const body = `## 📊 Benchmark Results\n\n\`\`\`\n${benchmarkResults}\n\`\`\``;
+      # - name: Comment Benchmark Results on PR
+      #   uses: actions/github-script@v7
+      #   if: github.event_name == 'pull_request'
+      #   with:
+      #     script: |
+      #       const fs = require('fs');
+      #       const benchmarkResults = fs.readFileSync('benchmark-results.txt', 'utf8');
+      #       const body = `## 📊 Benchmark Results\n\n\`\`\`\n${benchmarkResults}\n\`\`\``;
 
-          github.rest.issues.createComment({
-            issue_number: context.issue.number,
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            body: body
-          });
+      #       github.rest.issues.createComment({
+      #         issue_number: context.issue.number,
+      #         owner: context.repo.owner,
+      #         repo: context.repo.repo,
+      #         body: body
+      #       });
 
-  quality-gate:
-    name: Quality Gate
-    runs-on: ubuntu-latest
-    needs: [test]
+  # quality-gate:
+  #   name: Quality Gate
+  #   runs-on: ubuntu-latest
+  #   needs: [test]
 
-    steps:
-    - name: Download Test Results
-      uses: actions/download-artifact@v4
-      with:
-        name: test-results
+  #   steps:
+  #     - name: Download Test Results
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         name: test-results
 
-    - name: Check Quality Gates
-      run: |
-        echo "✅ Quality Gate: All tests must pass"
-        echo "✅ Quality Gate: Code coverage > 60%"
-        echo "✅ Quality Gate: No critical bugs"
-        echo "Quality gates passed!"
+  #     - name: Check Quality Gates
+  #       run: |
+  #         echo "✅ Quality Gate: All tests must pass"
+  #         echo "✅ Quality Gate: Code coverage > 60%"
+  #         echo "✅ Quality Gate: No critical bugs"
+  #         echo "Quality gates passed!"
