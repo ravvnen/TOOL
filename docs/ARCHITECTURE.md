@@ -25,15 +25,13 @@ TOOL is an event-sourced instruction memory system where multiple agents share a
                      ▼
                   EVENTS (JetStream)
                      │
-                 Promoter Service
+                 Promoter Service -- promoter.db
                      │ emits
                      ▼
                 DELTAS (JetStream)
                      │
-            Projection + Embedding Service
-                     │
-        Projection DB (rules, history, provenance)
-        Vector store / embeddings index
+            Projection + Embedding Service -- rules.db (rules, history, provenance)
+                     │ + (V3 Vector store / embeddings index)
                      │
                      ▼
              Application API & MCP Server
@@ -55,7 +53,7 @@ Agent UI / Local      IDE / MCP Client           Admin UI
 - Runs gating/policy logic (canonicalization, deduplication)
 - Inserts into promoter DB (versions, seen events)
 - Emits `DELTAS` events (`im.upsert.v1`, `im.retract.v1`)
-- Records audit decisions (skip, defer, promote, override)
+- Records audit decisions (skip, defer, promote, override) into `AUDITS`
 
 **Database:**
 - `promoter_items`: Current state per namespace/item
