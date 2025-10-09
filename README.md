@@ -1,51 +1,29 @@
 # TOOL - The Organized Operating Language
 
-> **Master's Thesis Project**: Event-Sourced, Deterministic Instruction Memory System for Multi-Agent AI
+> **Master's Thesis Project**: Event-sourced instruction memory system for multi-agent AI
 
-## Overview
+TOOL is a deterministic, auditable rulebook system that provides versioned instruction memory for AI agents. Built on NATS JetStream with SQLite FTS5 for full-text search.
 
-TOOL is a centralized, event-sourced rulebook system that provides **deterministic**, **auditable**, and **versioned** instruction memory for AI agents. Built on NATS JetStream with SQLite FTS5 for semantic search.
+---
 
-**Key Features:**
-- Event Sourcing with full audit trail (EVENTS → DELTAS → AUDITS)
-- Deterministic retrieval: same query + same state = same results
-- Provenance tracking: every rule linked to Git source
-- FTS5 full-text search with query sanitization
-- Memory-as-a-Service REST API
+## 📚 Documentation
 
-## Architecture
+| Document | Description |
+|----------|-------------|
+| **[ARCHITECTURE.md](./docs/ARCHITECTURE.md)** | System architecture, components, event flow, tech stack |
+| **[API.md](./docs/API.md)** | REST API endpoints, MCP protocol, request/response examples |
+| **[SCHEMAS.md](./docs/SCHEMAS.md)** | Database schemas, event formats, provenance tracking |
+| **[THESIS.md](./docs/THESIS.md)** | Research narrative, contributions, experiments (H1-H5) |
+| **[VERSIONS.md](./docs/VERSIONS.md)** | Roadmap, milestones, task breakdown (v1.0 → v7.0) |
+| **[evaluation/README.md](./evaluation/README.md)** | Evaluation framework, test datasets, analysis tools |
 
-```
-User Prompt
-    ↓
-TOOL API: /api/v1/compile-memory
-    ├─ MemoryCompiler (FTS5 + Scoring)
-    ├─ SELECT rules FROM im_items_current
-    └─ Build JSON with provenance
-        ↓
-{
-  "ns": "ravvnen.consulting",
-  "generated_at": "2025-10-07T...",
-  "rules": [
-    {
-      "id": "im:api.idempotency@v1",
-      "title": "Idempotent Request Standard",
-      "content": "...",
-      "provenance": {
-        "repo": "github.com/ravvnen/rules",
-        "ref": "main",
-        "path": "api/idempotency.md",
-        "blob_sha": "abc123..."
-      }
-    }
-  ]
-}
-        ↓
-Agent.UI: Local LLM (Ollama)
-    └─ Response with citations [im:api.idempotency@v1]
-```
+**Quick links:**
+- [CLAUDE.md](./CLAUDE.md) - Project overview for Claude Code
+- [CONTRIBUTING.md](./CONTRIBUTING.md) - Development guidelines
 
-## Quick Start
+---
+
+## 🚀 Quick Start
 
 ### Prerequisites
 - .NET 9.0 SDK
@@ -55,81 +33,58 @@ Agent.UI: Local LLM (Ollama)
 
 ### Setup
 
-**Terminal 1 - NATS server:**
-```bash
-nats-server -js -m 8222 -sd ./nats_store
+Look at ```CONTRIBUTING.md```
+
 ```
 
-**Terminal 2 - TOOL API:**
-```bash
-dotnet run --project ./src/TOOL/
-```
+Visit **http://localhost:3000** for the debug UI with Chat, Search, and Compile Memory tabs.
 
-**Terminal 3 - Agent.UI:**
-```bash
-cd src/Agent.UI
-npm install
-npm run dev
-```
+---
 
-Visit http://localhost:3000 for the debug UI with Chat, Search, and Compile Memory tabs.
-
-## Development
+## 🛠️ Development
 
 ```bash
 # Format code
 make format
 
-# Build
+# Build all projects
 make build
 
 # Install pre-commit hooks
 make install-hooks
 ```
 
-## API Endpoints
+---
 
-### `POST /api/v1/compile-memory`
-Compile context-specific memory from prompt.
-
-```json
-{
-  "prompt": "How do I handle retries?",
-  "topK": 5,
-  "ns": "ravvnen.consulting"
-}
-```
-
-### `GET /api/v1/search?q=<query>&k=<limit>&ns=<namespace>`
-Full-text search across active rules.
-
-### `GET /api/v1/state?ns=<namespace>`
-Get namespace state (active item count, IM hash).
-
-### `GET /api/v1/debug/items?ns=<namespace>`
-List all items in database.
-
-## Event Sourcing Flow
+## 📁 Project Structure
 
 ```
-1. Seed Proposal → NATS EVENTS stream
-2. Promoter → Evaluates → NATS DELTAS stream
-3. DeltaConsumer → Applies to SQLite
-4. MemoryCompiler → Reads from im_items_current
+TOOL/
+├── docs/                   # Documentation
+│   ├── ARCHITECTURE.md     # System design
+│   ├── API.md             # Endpoint reference
+│   ├── SCHEMAS.md         # Database schemas
+│   ├── THESIS.md          # Research narrative
+│   └── VERSIONS.md        # Roadmap
+├── evaluation/            # Evaluation framework
+│   ├── data/              # Test datasets
+│   ├── analysis/          # Statistical analysis
+│   ├── experiments/       # Experiment runs
+│   ├── protocols/         # Evaluation protocols
+│   └── scripts/           # Automation scripts
+├── src/
+│   ├── TOOL/              # Main API (.NET)
+│   ├── Agent.UI/          # Debug UI (React + Vite)
+│   └── TOOL.Evaluation/   # Evaluation infrastructure
+└── scripts/               # Build & deployment scripts
 ```
 
-## Tech Stack
+---
 
-- .NET 9.0 (ASP.NET Core Web API)
-- NATS JetStream (Event streaming)
-- SQLite + FTS5 (Rule storage + search)
-- React 19 + Vite (Debug UI)
-- Ollama (Local LLM)
-
-## License
+## 📄 License
 
 MIT License
 
 ---
 
-**Ravvnen** - Master's Thesis
+**Ravvnen** - Master's Thesis, 2025
