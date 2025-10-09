@@ -2,7 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using SQLitePCL;
 
-namespace TOOL.UseCases.SeedProposal;
+namespace TOOL.Modules.SeedProcessing;
 
 [ApiController]
 [Route("api/v1")]

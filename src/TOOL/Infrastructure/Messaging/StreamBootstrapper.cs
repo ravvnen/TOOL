@@ -3,7 +3,7 @@ using Microsoft.Extensions.Hosting;
 using NATS.Client.JetStream;
 using NATS.Client.JetStream.Models;
 
-namespace TOOL;
+namespace TOOL.Infrastructure.Messaging;
 
 public sealed class StreamBootstrapper(
     NatsJSContext js,

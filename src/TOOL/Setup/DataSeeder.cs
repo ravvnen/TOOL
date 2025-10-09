@@ -4,7 +4,7 @@ using System.Text.Json;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 
-namespace TOOL;
+namespace TOOL.Setup;
 
 public class DataSeeder
 {

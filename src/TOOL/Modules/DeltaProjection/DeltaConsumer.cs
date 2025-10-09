@@ -5,6 +5,8 @@ using NATS.Client.Core;
 using NATS.Client.JetStream;
 using NATS.Client.JetStream.Models;
 
+namespace TOOL.Modules.DeltaProjection;
+
 public sealed class DeltaConsumer : BackgroundService
 {
     private readonly NatsJSContext _js;

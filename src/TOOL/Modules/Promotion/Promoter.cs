@@ -8,6 +8,8 @@ using NATS.Client.Core;
 using NATS.Client.JetStream;
 using NATS.Client.JetStream.Models;
 
+namespace TOOL.Modules.Promotion;
+
 // NOTE: This promoter listens to evt.> (all events). If you only want proposals, use "evt.>.proposal.v1".
 public sealed class Promoter : BackgroundService
 {
