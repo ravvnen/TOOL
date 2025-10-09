@@ -48,6 +48,9 @@ cd src/Agent.UI && npm install && npm run dev
 Visit http://localhost:3000 for debug UI.
 
 ---
+## Workflow
+Clauds development process is explciity stated in 
+| **[CLAUDE_DEV_PROCESS.md](.CLAUDE_DEV_PROCESS.md)** |
 
 ## Documentation
 
