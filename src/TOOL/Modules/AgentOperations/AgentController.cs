@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
-using TOOL.Services;
+using TOOL.Modules.MemoryManagement;
 
-namespace TOOL.Controllers;
+namespace TOOL.Modules.AgentOperations;
 
 [ApiController]
 [Route("agent/{ns}")]

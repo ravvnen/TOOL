@@ -1,7 +1,7 @@
 using Dapper;
 using Microsoft.Data.Sqlite;
 
-namespace TOOL.Services;
+namespace TOOL.Infrastructure.Database;
 
 // Renamed to avoid ambiguity with Microsoft.Data.Sqlite.SqliteFactory
 public class AppSqliteFactory

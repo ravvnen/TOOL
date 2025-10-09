@@ -2,7 +2,7 @@ using System.Text;
 using NATS.Client.Core;
 using NATS.Client.JetStream;
 
-namespace TOOL.UseCases.SeedProposal;
+namespace TOOL.Modules.SeedProcessing;
 
 public sealed class SeedHandler : ISeedHandler
 {

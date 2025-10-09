@@ -1,4 +1,4 @@
-namespace TOOL.Services;
+namespace TOOL.Infrastructure.Database;
 
 public sealed class DatabaseInitializer : IHostedService
 {

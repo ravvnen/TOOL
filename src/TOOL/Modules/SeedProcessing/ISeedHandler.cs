@@ -1,4 +1,4 @@
-namespace TOOL.UseCases.SeedProposal;
+namespace TOOL.Modules.SeedProcessing;
 
 public interface ISeedHandler
 {

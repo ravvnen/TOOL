@@ -312,7 +312,6 @@ Clients discover available tools/resources/prompts via:
 **Current (v1.0 MVP):**
 - No authentication (development only)
 - Trust model: all clients trusted
-
 **Future (v5.0 Admin CRUD):**
 - API key or Bearer token authentication
 - Role-based access control (RBAC):

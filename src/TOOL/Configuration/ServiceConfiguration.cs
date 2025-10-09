@@ -2,8 +2,13 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using NATS.Client.Core;
 using NATS.Client.JetStream;
-using TOOL.Services;
-using TOOL.UseCases.SeedProposal;
+using TOOL.Infrastructure.Database;
+using TOOL.Infrastructure.Messaging;
+using TOOL.Modules.DeltaProjection;
+using TOOL.Modules.MemoryManagement;
+using TOOL.Modules.Promotion;
+using TOOL.Modules.SeedProcessing;
+using TOOL.Modules.SeedProcessing.Ingestion;
 
 namespace TOOL;
 
@@ -43,8 +48,8 @@ public static class ServiceConfiguration
         builder.Services.AddSingleton<DataSeeder>();
 
         // Centralized database and memory services
-        builder.Services.AddSingleton<TOOL.Services.AppSqliteFactory>();
-        builder.Services.AddSingleton<TOOL.Services.MemoryCompiler>();
+        builder.Services.AddSingleton<AppSqliteFactory>();
+        builder.Services.AddSingleton<MemoryCompiler>();
 
         // Stream bootstrappers
         builder.Services.AddSingleton<IHostedService>(sp => new StreamBootstrapper(
@@ -78,7 +83,7 @@ public static class ServiceConfiguration
         // Database initialization - ensure database exists on startup
         builder.Services.AddSingleton<IHostedService>(sp =>
         {
-            var dbFactory = sp.GetRequiredService<TOOL.Services.AppSqliteFactory>();
+            var dbFactory = sp.GetRequiredService<AppSqliteFactory>();
             var logger = sp.GetRequiredService<ILogger<DatabaseInitializer>>();
             return new DatabaseInitializer(dbFactory, logger);
         });
