@@ -787,43 +787,16 @@ public sealed class Promoter : BackgroundService
             type = "promoter.decision.v1",
             ns,
             decision_id = decisionId,
+            item_id = itemId,
+            sha, // Link back to input event
             action = actionStr,
             reason_code = reasonCode,
             reason_detail = reasonDetail,
             policy_version = _policyVersion,
-            input = new
-            {
-                subject = msg.Subject,
-                item_id = itemId,
-                sha,
-                content_hash = contentHash,
-                ci = ExtractString(msg, "ci"),
-                branch_ref = ExtractSourceRef(msg),
-                labels = ExtractLabels(msg),
-            },
-            state = new
-            {
-                prior_version = priorVersion,
-                prior_hash = priorHash,
-                new_version = newVersion,
-                is_same_hash = isSameHash,
-            },
-            output = new
-            {
-                emitted = deltaType is not null,
-                delta_type = deltaType,
-                delta_subject = deltaSubject,
-                delta_msg_id = deltaMsgId,
-                stream = deltasStream,
-                stream_seq = deltasSeq,
-            },
-            timing = new
-            {
-                received_at = receivedAt,
-                decided_at = decidedAt,
-                published_at = deltaType is not null ? decidedAt : (DateTimeOffset?)null,
-                latency_ms = latencyMs,
-            },
+            prior_version = priorVersion,
+            new_version = newVersion,
+            delta_seq = deltasSeq, // Link to DELTA stream
+            latency_ms = latencyMs,
             emitted_at = DateTimeOffset.UtcNow,
         };
 
@@ -895,53 +868,5 @@ public sealed class Promoter : BackgroundService
         {
             _log.LogWarning(ex, "Failed to persist promoter_audit row (non-fatal)");
         }
-    }
-
-    // Extract helpers for audit (works from the already-parsed payload in handler)
-    static string? ExtractString(INatsJSMsg<byte[]> msg, string name)
-    {
-        try
-        {
-            using var doc = JsonDocument.Parse(msg.Data!);
-            var root = doc.RootElement;
-            if (root.TryGetProperty(name, out var el) && el.ValueKind == JsonValueKind.String)
-                return el.GetString();
-        }
-        catch { }
-        return null;
-    }
-
-    static string? ExtractSourceRef(INatsJSMsg<byte[]> msg)
-    {
-        try
-        {
-            using var doc = JsonDocument.Parse(msg.Data!);
-            var root = doc.RootElement;
-            if (
-                root.TryGetProperty("source", out var src)
-                && src.TryGetProperty("ref", out var r)
-                && r.ValueKind == JsonValueKind.String
-            )
-                return r.GetString();
-        }
-        catch { }
-        return null;
-    }
-
-    static string[] ExtractLabels(INatsJSMsg<byte[]> msg)
-    {
-        try
-        {
-            using var doc = JsonDocument.Parse(msg.Data!);
-            var root = doc.RootElement;
-            if (root.TryGetProperty("labels", out var arr) && arr.ValueKind == JsonValueKind.Array)
-                return arr.EnumerateArray()
-                    .Select(x => x.GetString())
-                    .Where(s => !string.IsNullOrWhiteSpace(s))
-                    .Cast<string>()
-                    .ToArray();
-        }
-        catch { }
-        return Array.Empty<string>();
     }
 }
