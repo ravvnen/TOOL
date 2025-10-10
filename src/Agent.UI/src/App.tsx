@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useApi } from './hooks/useApi';
 import { useOllama } from './hooks/useOllama';
-import type { DebugItem, StateResponse, SearchResult, CompiledMemory, Message } from './types';
+import type { DebugItem, StateResponse, SearchResult, CompiledMemory, Message, ProvenanceResponse } from './types';
 
 function App() {
   const [tab, setTab] = useState<'chat' | 'state' | 'items' | 'search' | 'compile'>('chat');
@@ -13,6 +13,11 @@ function App() {
   const [compiledMemory, setCompiledMemory] = useState<CompiledMemory | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Provenance modal state
+  const [showProvenance, setShowProvenance] = useState(false);
+  const [provenance, setProvenance] = useState<ProvenanceResponse | null>(null);
+  const [provenanceLoading, setProvenanceLoading] = useState(false);
 
   // Chat state
   const [messages, setMessages] = useState<Message[]>([]);
@@ -111,6 +116,20 @@ function App() {
     }
   };
 
+  const handleShowProvenance = async (id: string) => {
+    try {
+      setProvenanceLoading(true);
+      setShowProvenance(true);
+      const data = await api.getWhy(id);
+      setProvenance(data);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Unknown error');
+      setShowProvenance(false);
+    } finally {
+      setProvenanceLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (tab === 'state') loadState();
     if (tab === 'items') loadItems();
@@ -169,7 +188,12 @@ function App() {
                       {msg.memory.rules.map((rule, j) => (
                         <div key={j} style={{ marginBottom: '12px' }}>
                           <div style={{ fontWeight: 700, color: '#22d3ee' }}>
-                            {rule.title}
+                            <span
+                              style={{ cursor: 'pointer', textDecoration: 'underline' }}
+                              onClick={() => handleShowProvenance(rule.id)}
+                            >
+                              {rule.title}
+                            </span>
                             <span className="tag" style={{ marginLeft: '8px' }}>{rule.id}</span>
                           </div>
                           <pre className="rule" style={{ fontSize: '11px', marginTop: '4px' }}>
@@ -254,6 +278,7 @@ function App() {
                   <th>Title</th>
                   <th>Active</th>
                   <th>Preview</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -268,11 +293,20 @@ function App() {
                     <td style={{ maxWidth: '400px' }}>
                       <code className="small">{item.preview}</code>
                     </td>
+                    <td>
+                      <button
+                        className="btn"
+                        style={{ fontSize: '0.85em', padding: '4px 8px' }}
+                        onClick={() => handleShowProvenance(item.item_id)}
+                      >
+                        Why?
+                      </button>
+                    </td>
                   </tr>
                 ))}
                 {items.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="empty">
+                    <td colSpan={6} className="empty">
                       No items found
                     </td>
                   </tr>
@@ -353,6 +387,100 @@ function App() {
               </pre>
             </div>
           )}
+        </div>
+      )}
+
+      {/* PROVENANCE MODAL */}
+      {showProvenance && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.7)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+          }}
+          onClick={() => setShowProvenance(false)}
+        >
+          <div
+            className="card"
+            style={{ maxWidth: '800px', maxHeight: '80vh', overflow: 'auto', margin: '20px' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="row" style={{ justifyContent: 'space-between', marginBottom: '16px' }}>
+              <h2>Rule Provenance</h2>
+              <button className="btn" onClick={() => setShowProvenance(false)}>
+                Close
+              </button>
+            </div>
+
+            {provenanceLoading && <div className="empty">Loading provenance...</div>}
+
+            {!provenanceLoading && provenance && (
+              <div>
+                <div style={{ marginBottom: '16px' }}>
+                  <div className="muted">Rule ID</div>
+                  <code className="small">{provenance.id}</code>
+                  <span className="tag" style={{ marginLeft: '8px' }}>
+                    v{provenance.version}
+                  </span>
+                </div>
+
+                <div style={{ marginBottom: '16px' }}>
+                  <div className="muted">Title</div>
+                  <div style={{ fontSize: '1.2em', fontWeight: 700 }}>{provenance.title}</div>
+                </div>
+
+                <div style={{ marginBottom: '16px' }}>
+                  <div className="muted">Content</div>
+                  <pre className="rule" style={{ maxHeight: '300px', overflow: 'auto' }}>
+                    {provenance.content}
+                  </pre>
+                </div>
+
+                <div style={{ marginBottom: '16px' }}>
+                  <div className="muted">Git Sources ({provenance.sources.length})</div>
+                  {provenance.sources.length === 0 ? (
+                    <div className="empty">No source bindings found</div>
+                  ) : (
+                    <table style={{ marginTop: '8px' }}>
+                      <thead>
+                        <tr>
+                          <th>Repository</th>
+                          <th>Ref</th>
+                          <th>Path</th>
+                          <th>Blob SHA</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {provenance.sources.map((src, i) => (
+                          <tr key={i}>
+                            <td>
+                              <code className="small">{src.repo}</code>
+                            </td>
+                            <td>
+                              <code className="small">{src.ref}</code>
+                            </td>
+                            <td>
+                              <code className="small">{src.path}</code>
+                            </td>
+                            <td>
+                              <code className="small">{src.blob_sha.substring(0, 8)}...</code>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

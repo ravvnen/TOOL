@@ -1,4 +1,4 @@
-import type { CompiledMemory, SearchResult, StateResponse, DebugItem, ItemDetail } from '../types';
+import type { CompiledMemory, SearchResult, StateResponse, DebugItem, ItemDetail, ProvenanceResponse } from '../types';
 
 export function useApi() {
   const API_BASE = '/api/v1';
@@ -33,6 +33,11 @@ export function useApi() {
     // Get state
     getState: async (): Promise<StateResponse> => {
       return get(`${API_BASE}/state?ns=${NS}`);
+    },
+
+    // Get provenance (why)
+    getWhy: async (id: string): Promise<ProvenanceResponse> => {
+      return get(`${API_BASE}/why?id=${encodeURIComponent(id)}&ns=${NS}`);
     },
 
     // Search rules
