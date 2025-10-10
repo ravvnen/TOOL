@@ -7,6 +7,7 @@ using TOOL.Infrastructure.Messaging;
 using TOOL.Modules.DeltaProjection;
 using TOOL.Modules.MemoryManagement;
 using TOOL.Modules.Promotion;
+using TOOL.Modules.Replay;
 using TOOL.Modules.SeedProcessing;
 using TOOL.Modules.SeedProcessing.Ingestion;
 
@@ -50,6 +51,7 @@ public static class ServiceConfiguration
         // Centralized database and memory services
         builder.Services.AddSingleton<AppSqliteFactory>();
         builder.Services.AddSingleton<MemoryCompiler>();
+        builder.Services.AddSingleton<ReplayEngine>();
 
         // Stream bootstrappers
         builder.Services.AddSingleton<IHostedService>(sp => new StreamBootstrapper(

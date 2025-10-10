@@ -56,6 +56,55 @@ make install-hooks
 
 ---
 
+## 🔄 Replay & Verification
+
+TOOL supports deterministic state reconstruction via event replay for audit, disaster recovery, and thesis validation (H3).
+
+### Run Replay Test
+
+```bash
+# Run integration test to verify SRA = 1.00
+dotnet test tests/TOOL.IntegrationTests --filter "ReplayCorrectnessTests"
+```
+
+### Trigger Replay via API
+
+```bash
+# Replay all DELTAS for namespace
+curl -X POST http://localhost:5000/api/v1/admin/replay \
+  -H "Content-Type: application/json" \
+  -d '{"ns":"ravvnen.consulting"}'
+
+# Response:
+# {
+#   "ns": "ravvnen.consulting",
+#   "eventsProcessed": 145,
+#   "activeCount": 39,
+#   "imHash": "6F95CF81852EC...",
+#   "replayTimeMs": 1234,
+#   "startedAt": "2025-10-10T12:00:00Z",
+#   "completedAt": "2025-10-10T12:00:01Z"
+# }
+```
+
+### Run Replay Experiments (H3)
+
+```bash
+# Run 10 replay trials and compute statistics
+./scripts/run_replay_experiments.sh 10
+
+# Analyze results
+python3 analysis/replay_statistics.py experiments/replay_results_*.jsonl
+
+# Output:
+# Trials: 10
+# SRA Mean: 1.0000 (95% CI: [1.0000, 1.0000])
+# Deterministic: ✅ YES
+# Hypothesis Supported: ✅ YES
+```
+
+---
+
 ## 📁 Project Structure
 
 ```
@@ -66,17 +115,23 @@ TOOL/
 │   ├── SCHEMAS.md         # Database schemas
 │   ├── THESIS.md          # Research narrative
 │   └── VERSIONS.md        # Roadmap
-├── evaluation/            # Evaluation framework
-│   ├── data/              # Test datasets
-│   ├── analysis/          # Statistical analysis
-│   ├── experiments/       # Experiment runs
-│   ├── protocols/         # Evaluation protocols
-│   └── scripts/           # Automation scripts
 ├── src/
 │   ├── TOOL/              # Main API (.NET)
+│   │   ├── Modules/
+│   │   │   ├── Promotion/         # Event gating & DELTA emission
+│   │   │   ├── DeltaProjection/   # DELTAS → projection DB
+│   │   │   ├── MemoryManagement/  # Rule retrieval & compilation
+│   │   │   ├── SeedProcessing/    # Webhook ingestion
+│   │   │   └── Replay/            # Event replay engine (v2.0)
+│   │   ├── Infrastructure/        # NATS, SQLite, messaging
+│   │   └── Configuration/         # DI, service registration
 │   ├── Agent.UI/          # Debug UI (React + Vite)
 │   └── TOOL.Evaluation/   # Evaluation infrastructure
-└── scripts/               # Build & deployment scripts
+├── tests/
+│   └── TOOL.IntegrationTests/  # Integration tests (H3 validation)
+├── analysis/              # Statistical analysis scripts
+├── experiments/           # Experiment results & logs
+└── scripts/               # Build, deployment, experiment runners
 ```
 
 ---
