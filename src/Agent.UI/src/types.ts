@@ -54,3 +54,18 @@ export interface ItemDetail {
   history: any[];
   provenance: any[];
 }
+
+export interface SourceBinding {
+  repo: string;
+  ref: string;
+  path: string;
+  blob_sha: string;
+}
+
+export interface ProvenanceResponse {
+  id: string;
+  title: string;
+  content: string;
+  version: number;
+  sources: SourceBinding[];
+}

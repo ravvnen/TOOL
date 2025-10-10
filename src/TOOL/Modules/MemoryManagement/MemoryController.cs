@@ -139,7 +139,7 @@ public class MemoryController : ControllerBase
                     cur.item_id,
                     cur.title,
                     cur.content,
-                    cur.version,
+                    (int)cur.version,
                     src.ToList()
                 )
             );
