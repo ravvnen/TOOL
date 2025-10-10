@@ -69,3 +69,13 @@ export interface ProvenanceResponse {
   version: number;
   sources: SourceBinding[];
 }
+
+export interface ReplayResult {
+  ns: string;
+  eventsProcessed: number;
+  activeCount: number;
+  imHash: string;
+  replayTimeMs: number;
+  startedAt: string;
+  completedAt: string;
+}

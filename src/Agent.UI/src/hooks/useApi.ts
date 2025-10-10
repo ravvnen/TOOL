@@ -1,4 +1,4 @@
-import type { CompiledMemory, SearchResult, StateResponse, DebugItem, ItemDetail, ProvenanceResponse } from '../types';
+import type { CompiledMemory, SearchResult, StateResponse, DebugItem, ItemDetail, ReplayResult, ProvenanceResponse } from '../types';
 
 export function useApi() {
   const API_BASE = '/api/v1';
@@ -52,6 +52,11 @@ export function useApi() {
 
     getDebugItem: async (id: string): Promise<ItemDetail> => {
       return get(`${API_BASE}/debug/item/${encodeURIComponent(id)}?ns=${NS}`);
+    },
+
+    // Admin: Trigger replay (v2.0)
+    triggerReplay: async (maxSequence?: number): Promise<ReplayResult> => {
+      return post(`${API_BASE}/admin/replay`, { ns: NS, maxSequence });
     },
   };
 }
