@@ -54,6 +54,17 @@ public sealed class ReplayEngine
         await InitializeDatabaseAsync(db, ct);
 
         // 2) Create ephemeral consumer (no durable name)
+        //
+        // WHY EPHEMERAL?
+        // - Replay is stateless: each run starts from scratch (no progress tracking needed)
+        // - Clean slate semantics: always replay from sequence 1 (DeliverPolicy.All)
+        // - No state pollution: avoid cluttering NATS with replay consumer state
+        // - Concurrency-safe: multiple concurrent replays don't conflict (each gets unique consumer)
+        //
+        // NOTE: Consumer durability ≠ Event persistence!
+        // - DELTAS stream has unlimited retention (configured in StreamBootstrapper)
+        // - Ephemeral consumer can read ALL events via DeliverPolicy.All
+        // - Durable consumer would track position across runs (wrong for stateless replay)
         var consumerName = $"replay-{Guid.NewGuid():N}";
         var consumer = await _js.CreateConsumerAsync(
             "DELTAS",
@@ -202,11 +213,6 @@ public sealed class ReplayEngine
                     );
                 }
             }
-        }
-        catch (NatsJSProtocolException ex) when (ex.Error.Code == 404)
-        {
-            // No messages available (empty stream or reached end)
-            _log.LogDebug("Replay fetch completed: no more messages available");
         }
         finally
         {
