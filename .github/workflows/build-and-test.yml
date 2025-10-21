@@ -1,0 +1,67 @@
+name: Build and Test
+
+on:
+  workflow_call:
+    inputs:
+      dotnet-version:
+        required: false
+        type: string
+        default: "9.0.x"
+
+jobs:
+  build-and-test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    strategy:
+      matrix:
+        configuration: [Debug, Release]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ inputs.dotnet-version }}
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build (${{ matrix.configuration }})
+        run: dotnet build --no-restore --configuration ${{ matrix.configuration }}
+
+      - name: Check for test projects
+        id: check-tests
+        run: |
+          if find . -name "*.csproj" -exec grep -l "Microsoft.NET.Test.Sdk\|xunit\|NUnit\|MSTest" {} \; | head -1; then
+            echo "has-tests=true" >> $GITHUB_OUTPUT
+            echo "✅ Test projects found"
+          else
+            echo "has-tests=false" >> $GITHUB_OUTPUT
+            echo "ℹ️  No test projects found - skipping test execution"
+          fi
+
+      - name: Run tests
+        if: steps.check-tests.outputs.has-tests == 'true'
+        run: dotnet test --no-build --configuration ${{ matrix.configuration }} --logger "trx;LogFileName=TestResults.trx" --results-directory ./TestResults --collect:"XPlat Code Coverage" -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always() && steps.check-tests.outputs.has-tests == 'true'
+        with:
+          name: test-results-${{ matrix.configuration }}
+          path: |
+            ./TestResults/**/*.trx
+            ./TestResults/**/TestResults.trx
+
+      - name: Upload coverage reports
+        uses: actions/upload-artifact@v4
+        if: always() && steps.check-tests.outputs.has-tests == 'true'
+        with:
+          name: coverage-${{ matrix.configuration }}
+          path: |
+            ./TestResults/**/coverage.cobertura.xml
+            ./TestResults/**/Cobertura.xml
