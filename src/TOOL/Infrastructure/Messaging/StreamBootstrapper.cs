@@ -9,12 +9,20 @@ public sealed class StreamBootstrapper(
     NatsJSContext js,
     string streamName,
     string[] subjects,
-    StreamConfigStorage storage = StreamConfigStorage.File
+    StreamConfigStorage storage = StreamConfigStorage.File,
+    TimeSpan? maxAge = null
 ) : IHostedService
 {
     public async Task StartAsync(CancellationToken cancellationToken)
     {
-        var streamConfig = new StreamConfig(streamName, subjects) { Storage = storage };
+        var streamConfig = new StreamConfig(streamName, subjects)
+        {
+            Storage = storage,
+            Retention = StreamConfigRetention.Limits,
+            // Event sourcing: unlimited retention (maxAge = 0)
+            // For non-critical streams, maxAge can be set to limit retention
+            MaxAge = maxAge ?? TimeSpan.Zero, // Default: unlimited (0 = forever)
+        };
 
         // check if it exists
         try
@@ -36,7 +44,9 @@ public sealed class StreamBootstrapper(
         {
             // create a new stream
             await js.CreateStreamAsync(streamConfig, cancellationToken);
-            Console.WriteLine($"[Bootstrap] Created FILE-backed stream '{streamName}'.");
+            Console.WriteLine(
+                $"[Bootstrap] Created FILE-backed stream '{streamName}' (retention: {(maxAge == TimeSpan.Zero ? "unlimited" : maxAge?.ToString() ?? "unlimited")})."
+            );
             return;
         }
         catch (Exception ex)

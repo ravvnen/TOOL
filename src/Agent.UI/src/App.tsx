@@ -1,16 +1,17 @@
 import { useState, useEffect, useRef } from 'react';
 import { useApi } from './hooks/useApi';
 import { useOllama } from './hooks/useOllama';
-import type { DebugItem, StateResponse, SearchResult, CompiledMemory, Message, ProvenanceResponse } from './types';
+import type { DebugItem, StateResponse, SearchResult, CompiledMemory, Message, ReplayResult, ProvenanceResponse } from './types';
 
 function App() {
-  const [tab, setTab] = useState<'chat' | 'state' | 'items' | 'search' | 'compile'>('chat');
+  const [tab, setTab] = useState<'chat' | 'state' | 'items' | 'search' | 'compile' | 'replay'>('chat');
   const [state, setState] = useState<StateResponse | null>(null);
   const [items, setItems] = useState<DebugItem[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [compilePrompt, setCompilePrompt] = useState('');
   const [compiledMemory, setCompiledMemory] = useState<CompiledMemory | null>(null);
+  const [replayResult, setReplayResult] = useState<ReplayResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -74,6 +75,23 @@ function App() {
       setError(null);
       const data = await api.compileMemory(compilePrompt, 6);
       setCompiledMemory(data);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Unknown error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleReplay = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const result = await api.triggerReplay();
+      setReplayResult(result);
+
+      // Also refresh state to compare hashes
+      const currentState = await api.getState();
+      setState(currentState);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Unknown error');
     } finally {
@@ -158,6 +176,9 @@ function App() {
         </div>
         <div className={`tab ${tab === 'compile' ? 'active' : ''}`} onClick={() => setTab('compile')}>
           Compile Memory
+        </div>
+        <div className={`tab ${tab === 'replay' ? 'active' : ''}`} onClick={() => setTab('replay')}>
+          Replay (Admin)
         </div>
       </div>
 
@@ -385,6 +406,91 @@ function App() {
               <pre className="rule" style={{ maxHeight: '500px', overflow: 'auto' }}>
                 {JSON.stringify(compiledMemory, null, 2)}
               </pre>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* REPLAY TAB (ADMIN) */}
+      {tab === 'replay' && (
+        <div className="card">
+          <h2 style={{ marginBottom: '16px' }}>Replay Engine (Admin / v2.0 H3 Validation)</h2>
+          <p style={{ marginBottom: '16px', color: '#94a3b8' }}>
+            Trigger a full replay of DELTAS stream to validate State Reconstruction Accuracy (SRA = 1.00).
+            This operation creates a fresh database and replays all events from the beginning.
+          </p>
+
+          <button className="btn" onClick={handleReplay} disabled={loading}>
+            {loading ? 'Replaying...' : 'Trigger Replay'}
+          </button>
+
+          {replayResult && state && (
+            <div style={{ marginTop: '24px' }}>
+              <h3 style={{ marginBottom: '16px' }}>Replay Result</h3>
+
+              <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
+                <div className="card">
+                  <div className="muted">Events Processed</div>
+                  <div style={{ fontSize: '1.5em', fontWeight: 700 }}>{replayResult.eventsProcessed}</div>
+                </div>
+
+                <div className="card">
+                  <div className="muted">Active Rules</div>
+                  <div style={{ fontSize: '1.5em', fontWeight: 700 }}>{replayResult.activeCount}</div>
+                </div>
+
+                <div className="card">
+                  <div className="muted">Replay Time</div>
+                  <div style={{ fontSize: '1.5em', fontWeight: 700 }}>{replayResult.replayTimeMs}ms</div>
+                </div>
+              </div>
+
+              <div style={{ marginTop: '24px' }}>
+                <h4 style={{ marginBottom: '12px' }}>Hash Comparison (SRA Validation)</h4>
+
+                <div className="card">
+                  <div style={{ marginBottom: '8px' }}>
+                    <strong>Live State Hash:</strong>
+                    <br />
+                    <code className="small">{state.imHash}</code>
+                  </div>
+                  <div style={{ marginBottom: '8px' }}>
+                    <strong>Replayed State Hash:</strong>
+                    <br />
+                    <code className="small">{replayResult.imHash}</code>
+                  </div>
+                  <div style={{ marginTop: '16px', padding: '12px', borderRadius: '8px', background: state.imHash === replayResult.imHash ? '#14532d' : '#7f1d1d' }}>
+                    <strong style={{ fontSize: '1.2em' }}>
+                      {state.imHash === replayResult.imHash ? '✅ SRA = 1.00 (Perfect Match)' : '❌ SRA = 0.00 (Mismatch)'}
+                    </strong>
+                    <br />
+                    {state.imHash === replayResult.imHash ? (
+                      <span style={{ color: '#86efac' }}>
+                        Replay successfully reconstructed identical state. Event sourcing determinism validated!
+                      </span>
+                    ) : (
+                      <span style={{ color: '#fca5a5' }}>
+                        Warning: Replay produced different state. Investigate non-determinism in projection logic.
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <details style={{ marginTop: '24px' }}>
+                <summary style={{ cursor: 'pointer', color: '#22d3ee', fontSize: '1em', marginBottom: '8px' }}>
+                  Full Replay Result (JSON)
+                </summary>
+                <pre className="rule" style={{ maxHeight: '400px', overflow: 'auto' }}>
+                  {JSON.stringify(replayResult, null, 2)}
+                </pre>
+              </details>
+            </div>
+          )}
+
+          {!replayResult && !loading && (
+            <div className="empty" style={{ marginTop: '24px' }}>
+              Click "Trigger Replay" to validate event sourcing determinism (H3).
             </div>
           )}
         </div>

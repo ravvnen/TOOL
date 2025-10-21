@@ -64,15 +64,17 @@ Version v2.0 — Replayability & Retractions
 Objective: Add capabilities to retract rules, replay from history, and verify determinism through event sourcing.
 
 Key Features & Tasks (Issues)
-Issue ID	Title	Description / Acceptance Criteria
-v2.0-01	Support im.retract.v1 events	Promoter can issue and handle retraction events, marking rules inactive or removal
-v2.0-02	DELTA schema extension	Extend DELTA message format to support deletion / retraction events
-v2.0-03	Replay engine implementation	Module to replay DELTA logs from beginning to reconstruct memory state
-v2.0-04	Full replay correctness test	Drop projection state, replay all DELTAS, compare resulting state hash with live state
-v2.0-05	Idempotency & duplicate handling	Ensure reapplying same DELTA doesn't corrupt state; handle duplicate events safely
-v2.0-06	Recovery for missing deltas	If agent misses DELTAS, allow catch-up via replay / sync logic
-v2.0-07	Logging / metrics: replay times	Instrument replay times, memory usage, event counts
-v2.0-08	Extend experiment: replayability metrics	Run multiple replay tests (10+ trials), log successes/failures, compile stats for H3
+
+| Issue ID | Title | Status | Implementation Notes |
+|----------|-------|--------|---------------------|
+| v2.0-01 | Support im.retract.v1 events | ✅ COMPLETE | Promoter.cs:308-487 handles retraction with soft delete (is_active=0). DeltaConsumer.cs:277-319 applies retractions. |
+| v2.0-02 | DELTA schema extension | ✅ COMPLETE | Schema exists: `{type:"im.retract.v1", ns, item_id, base_version, new_version, policy_version, source, occurred_at, emitted_at}`. Backward compatible via type field. |
+| v2.0-03 | Replay engine implementation | ✅ COMPLETE | ReplayEngine module created at `src/TOOL/Modules/Replay/`. Stateless replay from DELTAS stream, supports both upsert and retract events. |
+| v2.0-04 | Full replay correctness test | ✅ COMPLETE | Integration tests at `tests/TOOL.IntegrationTests/ReplayCorrectnessTests.cs`. Two tests: single replay SRA validation + multiple replay consistency check. |
+| v2.0-05 | Idempotency & duplicate handling | ✅ COMPLETE | Promoter uses `promoter_seen_events` + Nats-Msg-Id headers. DeltaConsumer uses `deltas_seen_events`. DB transactions ensure atomicity. |
+| v2.0-06 | Recovery for missing deltas | ✅ COMPLETE | DeltaConsumer uses durable consumer with DeliverPolicy.All. NATS JetStream automatically replays missed messages on reconnect. |
+| v2.0-07 | Logging / metrics: replay times | ✅ COMPLETE | ReplayEngine logs: events processed, active count, im_hash, duration, upsert/retract counts. Structured logging with timestamps. |
+| v2.0-08 | Extend experiment: replayability metrics | ✅ COMPLETE | Experiment harness: `scripts/run_replay_experiments.sh` (runs N trials). Analysis: `analysis/replay_statistics.py` (computes SRA, 95% CI, determinism check). |
 
 Deliverable / Definition of Done:
 

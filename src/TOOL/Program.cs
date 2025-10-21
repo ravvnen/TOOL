@@ -18,14 +18,6 @@ if (args.Contains("--seed-only"))
 
 var webApp = builder.Build();
 
-// Optional interactive onboarding: run with --onboard
-// TODO: OnboardingHelper needs to be located and imported
-// if (args.Contains("--onboard"))
-// {
-//     using var scope = webApp.Services.CreateScope();
-//     await OnboardingHelper.RunAsync(scope.ServiceProvider);
-// }
-
 // Enable CORS for Agent.Container communication
 webApp.UseCors();
 webApp.MapControllers();
