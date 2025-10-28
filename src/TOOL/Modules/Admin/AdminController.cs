@@ -73,8 +73,8 @@ public class AdminController : ControllerBase
             EventId = eventId,
         };
 
-        // Publish to EVENTS stream
-        var subject = $"Admin.RuleCreateRequested.{request.Ns}.{request.ItemId}";
+        // Publish to EVENTS stream (must match evt.> pattern)
+        var subject = $"evt.admin.rule.create.{request.Ns}.{request.ItemId}";
         var result = await PublishAdminEventAsync(subject, adminEvent, eventId, ct);
 
         return AcceptedAtAction(
@@ -142,8 +142,8 @@ public class AdminController : ControllerBase
             EventId = eventId,
         };
 
-        // Publish to EVENTS stream
-        var subject = $"Admin.RuleEditRequested.{ns}.{itemId}";
+        // Publish to EVENTS stream (must match evt.> pattern)
+        var subject = $"evt.admin.rule.edit.{ns}.{itemId}";
         var result = await PublishAdminEventAsync(subject, adminEvent, eventId, ct);
 
         return AcceptedAtAction(
@@ -207,8 +207,8 @@ public class AdminController : ControllerBase
             EventId = eventId,
         };
 
-        // Publish to EVENTS stream
-        var subject = $"Admin.RuleDeleteRequested.{ns}.{itemId}";
+        // Publish to EVENTS stream (must match evt.> pattern)
+        var subject = $"evt.admin.rule.delete.{ns}.{itemId}";
         var result = await PublishAdminEventAsync(subject, adminEvent, eventId, ct);
 
         return AcceptedAtAction(

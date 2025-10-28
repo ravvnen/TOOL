@@ -162,7 +162,7 @@ public sealed class Promoter : BackgroundService
                 var root = doc.RootElement;
 
                 // -------- Handle Admin events (bypass normal policy) --------
-                if (msg.Subject?.StartsWith("Admin.Rule", StringComparison.Ordinal) == true)
+                if (msg.Subject?.StartsWith("evt.admin.rule.", StringComparison.Ordinal) == true)
                 {
                     await HandleAdminEventAsync(db, msg, root, swStart, stoppingToken);
                     continue; // Admin handled, skip normal flow
