@@ -1,7 +1,6 @@
 using System.Text.Json;
 using Dapper;
 using Microsoft.Data.Sqlite;
-using NATS.Client.Core;
 using NATS.Client.JetStream;
 using NATS.Client.JetStream.Models;
 

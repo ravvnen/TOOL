@@ -258,7 +258,7 @@ public class AdminController : ControllerBase
             eventId
         );
 
-        return (subject, ack.Stream, ack.Seq);
+        return (subject, ack.Stream ?? "EVENTS", ack.Seq);
     }
 
     private static string ComputeSha256(string content)

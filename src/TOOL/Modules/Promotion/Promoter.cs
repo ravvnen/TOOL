@@ -887,7 +887,7 @@ public sealed class Promoter : BackgroundService
     /// </summary>
     private async Task HandleAdminEventAsync(
         SqliteConnection db,
-        NatsMsg<byte[]> msg,
+        INatsJSMsg<byte[]> msg,
         JsonElement root,
         long swStart,
         CancellationToken ct
