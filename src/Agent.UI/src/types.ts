@@ -79,3 +79,10 @@ export interface ReplayResult {
   startedAt: string;
   completedAt: string;
 }
+
+export interface AdminActionResponse {
+  accepted: boolean;
+  subject: string;
+  event_id: string;
+  message?: string;
+}
