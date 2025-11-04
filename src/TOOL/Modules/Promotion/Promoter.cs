@@ -161,6 +161,13 @@ public sealed class Promoter : BackgroundService
                 using var doc = JsonDocument.Parse(msg.Data);
                 var root = doc.RootElement;
 
+                // -------- Handle Admin events (bypass normal policy) --------
+                if (msg.Subject?.StartsWith("evt.admin.rule.", StringComparison.Ordinal) == true)
+                {
+                    await HandleAdminEventAsync(db, msg, root, swStart, stoppingToken);
+                    continue; // Admin handled, skip normal flow
+                }
+
                 // -------- Extract required fields (strict, with logging) --------
                 if (!TryGetString(root, "ns", out var ns) || string.IsNullOrWhiteSpace(ns))
                 {
@@ -870,5 +877,382 @@ public sealed class Promoter : BackgroundService
         {
             _log.LogWarning(ex, "Failed to persist promoter_audit row (non-fatal)");
         }
+    }
+
+    // ===== Admin Event Handling =====
+
+    /// <summary>
+    /// Handle admin events (Admin.RuleCreateRequested, Admin.RuleEditRequested, Admin.RuleDeleteRequested)
+    /// Admin events bypass normal policy and are auto-promoted
+    /// </summary>
+    private async Task HandleAdminEventAsync(
+        SqliteConnection db,
+        INatsJSMsg<byte[]> msg,
+        JsonElement root,
+        long swStart,
+        CancellationToken ct
+    )
+    {
+        // Extract common fields
+        if (!TryGetString(root, "ns", out var ns) || string.IsNullOrWhiteSpace(ns))
+        {
+            _log.LogWarning("[Admin] Missing ns. Subject={Subject}", msg.Subject);
+            await msg.NakAsync();
+            return;
+        }
+
+        if (!TryGetString(root, "item_id", out var itemId) || string.IsNullOrWhiteSpace(itemId))
+        {
+            _log.LogWarning("[Admin] Missing item_id. Subject={Subject}", msg.Subject);
+            await msg.NakAsync();
+            return;
+        }
+
+        if (!TryGetString(root, "action", out var action) || string.IsNullOrWhiteSpace(action))
+        {
+            _log.LogWarning("[Admin] Missing action. Subject={Subject}", msg.Subject);
+            await msg.NakAsync();
+            return;
+        }
+
+        if (!TryGetString(root, "event_id", out var eventId) || string.IsNullOrWhiteSpace(eventId))
+        {
+            _log.LogWarning("[Admin] Missing event_id. Subject={Subject}", msg.Subject);
+            await msg.NakAsync();
+            return;
+        }
+
+        // Extract admin metadata
+        if (
+            !root.TryGetProperty("admin_metadata", out var adminMetaEl)
+            || adminMetaEl.ValueKind != JsonValueKind.Object
+        )
+        {
+            _log.LogWarning("[Admin] Missing admin_metadata. Subject={Subject}", msg.Subject);
+            await msg.NakAsync();
+            return;
+        }
+
+        var userId = GetStringOrEmpty(adminMetaEl, "user_id");
+        var reason = GetStringOrEmpty(adminMetaEl, "reason");
+        var bypassReview =
+            adminMetaEl.TryGetProperty("bypass_review", out var br) && br.GetBoolean();
+        var expectedVersion =
+            adminMetaEl.TryGetProperty("expected_version", out var ev)
+            && ev.ValueKind == JsonValueKind.Number
+                ? (int?)ev.GetInt32()
+                : null;
+
+        if (!bypassReview)
+        {
+            // Admin requested normal review flow (rare)
+            _log.LogInformation(
+                "[Admin] Admin event does not have bypass_review=true, treating as normal proposal. ns={Ns} item={ItemId}",
+                ns,
+                itemId
+            );
+            await msg.NakAsync(); // Let normal flow handle it
+            return;
+        }
+
+        _log.LogInformation(
+            "[Admin] Processing admin {Action}: ns={Ns} item={ItemId} user={User}",
+            action,
+            ns,
+            itemId,
+            userId
+        );
+
+        // Get current version for conflict detection
+        var prior = await db.QuerySingleOrDefaultAsync<(int Version, int Active, string Hash)>(
+            "SELECT version as Version, is_active as Active, content_hash as Hash "
+                + "FROM promoter_items WHERE ns=@Ns AND item_id=@ItemId",
+            new { Ns = ns, ItemId = itemId }
+        );
+
+        var baseVersion = prior == default ? 0 : prior.Version;
+
+        // Conflict detection for updates and deletes (optimistic locking)
+        if (
+            (action == "update" || action == "delete")
+            && expectedVersion.HasValue
+            && baseVersion != expectedVersion.Value
+        )
+        {
+            _log.LogWarning(
+                "[Admin] Version conflict: expected v{Expected} but current is v{Current}. ns={Ns} item={ItemId} action={Action}",
+                expectedVersion.Value,
+                baseVersion,
+                ns,
+                itemId,
+                action
+            );
+
+            // Emit audit for conflict
+            await EmitAuditAsync(
+                db,
+                msg,
+                ns,
+                itemId,
+                eventId,
+                "skip",
+                "admin.conflict",
+                $"Version conflict: expected={expectedVersion}, actual={baseVersion}",
+                "",
+                baseVersion,
+                prior == default ? null : prior.Hash,
+                newVersion: null,
+                isSameHash: false,
+                deltaType: null,
+                deltaSubject: null,
+                deltaMsgId: null,
+                deltasStream: null,
+                deltasSeq: null,
+                swStart,
+                receivedAt: TryGetDateTimeOffset(root, "occurred_at") ?? DateTimeOffset.UtcNow
+            );
+
+            await msg.AckAsync(); // Ack (conflict handled, don't retry)
+            return;
+        }
+
+        // Extract content fields
+        var title = GetStringOrEmpty(root, "title");
+        var content = GetStringOrEmpty(root, "content");
+        var labels = GetStringArray(root, "labels");
+        var labelsJson = JsonSerializer.Serialize(labels);
+
+        // Extract source
+        if (
+            !root.TryGetProperty("source", out var source)
+            || source.ValueKind != JsonValueKind.Object
+        )
+        {
+            _log.LogWarning("[Admin] Missing source. Subject={Subject}", msg.Subject);
+            await msg.NakAsync();
+            return;
+        }
+
+        var repo = GetStringOrEmpty(source, "repo");
+        var srcRef = GetStringOrEmpty(source, "ref");
+        var path = GetStringOrEmpty(source, "path");
+        var blobSha = GetStringOrEmpty(source, "blob_sha");
+
+        // Canonicalize content and compute hash
+        var canonTitle = Canonicalize(title);
+        var canonContent = Canonicalize(content);
+        var contentHash = HexSha256($"{itemId}\n{canonTitle}\n{canonContent}");
+
+        // Determine new version and active status
+        int newVersion;
+        bool isActiveAfter;
+        string deltaType;
+
+        if (action == "delete")
+        {
+            // Idempotency check: skip if already inactive
+            if (prior != default && prior.Active == 0)
+            {
+                _log.LogInformation(
+                    "[Admin] Rule already inactive, skipping retract. ns={Ns} item={ItemId} v{V}",
+                    ns,
+                    itemId,
+                    baseVersion
+                );
+
+                await EmitAuditAsync(
+                    db,
+                    msg,
+                    ns,
+                    itemId,
+                    eventId,
+                    "skip",
+                    "admin.already_deleted",
+                    "Rule already inactive, idempotent skip",
+                    "",
+                    baseVersion,
+                    prior.Hash,
+                    newVersion: null,
+                    isSameHash: false,
+                    deltaType: null,
+                    deltaSubject: null,
+                    deltaMsgId: null,
+                    deltasStream: null,
+                    deltasSeq: null,
+                    swStart,
+                    receivedAt: TryGetDateTimeOffset(root, "occurred_at") ?? DateTimeOffset.UtcNow
+                );
+
+                await msg.AckAsync();
+                return;
+            }
+
+            newVersion = prior == default ? 1 : baseVersion + 1;
+            isActiveAfter = false;
+            deltaType = "im.retract.v1";
+        }
+        else // "create" or "update"
+        {
+            newVersion = prior == default ? 1 : baseVersion + 1;
+            isActiveAfter = true;
+            deltaType = "im.upsert.v1";
+        }
+
+        var occurredAt = TryGetDateTimeOffset(root, "occurred_at") ?? DateTimeOffset.UtcNow;
+
+        // Update promoter DB
+        using var tx = db.BeginTransaction();
+
+        await db.ExecuteAsync(
+            @"
+            INSERT INTO promoter_items
+              (ns,item_id,version,title,content,labels_json,content_hash,is_active,policy_version,
+               source_repo,source_ref,source_path,source_blob_sha,updated_at)
+            VALUES
+              (@Ns,@ItemId,@Version,@Title,@Content,@Labels,@Hash,@Active,@Policy,
+               @Repo,@Ref,@Path,@BlobSha,CURRENT_TIMESTAMP)
+            ON CONFLICT(ns,item_id) DO UPDATE SET
+              version=excluded.version,
+              title=excluded.title,
+              content=excluded.content,
+              labels_json=excluded.labels_json,
+              content_hash=excluded.content_hash,
+              is_active=excluded.is_active,
+              policy_version=excluded.policy_version,
+              source_repo=excluded.source_repo,
+              source_ref=excluded.source_ref,
+              source_path=excluded.source_path,
+              source_blob_sha=excluded.source_blob_sha,
+              updated_at=CURRENT_TIMESTAMP",
+            new
+            {
+                Ns = ns,
+                ItemId = itemId,
+                Version = newVersion,
+                Title = canonTitle,
+                Content = canonContent,
+                Labels = labelsJson,
+                Hash = contentHash,
+                Active = isActiveAfter ? 1 : 0,
+                Policy = _policyVersion + "-admin",
+                Repo = repo,
+                Ref = srcRef,
+                Path = path,
+                BlobSha = blobSha,
+            },
+            tx
+        );
+
+        await db.ExecuteAsync(
+            @"
+            INSERT INTO promoter_item_versions
+              (ns,item_id,version,title,content,labels_json,content_hash,input_event_id,policy_version,
+               source_repo,source_ref,source_path,source_blob_sha,emitted_at)
+            VALUES
+              (@Ns,@ItemId,@Version,@Title,@Content,@Labels,@Hash,@EventId,@Policy,
+               @Repo,@Ref,@Path,@BlobSha,@EmittedAt)",
+            new
+            {
+                Ns = ns,
+                ItemId = itemId,
+                Version = newVersion,
+                Title = canonTitle,
+                Content = canonContent,
+                Labels = labelsJson,
+                Hash = contentHash,
+                EventId = eventId,
+                Policy = _policyVersion + "-admin",
+                Repo = repo,
+                Ref = srcRef,
+                Path = path,
+                BlobSha = blobSha,
+                EmittedAt = DateTimeOffset.UtcNow.ToString("o"),
+            },
+            tx
+        );
+
+        tx.Commit();
+
+        // Emit DELTA
+        var deltaSubject = $"delta.{ns}.{itemId}";
+        var delta = new
+        {
+            type = deltaType,
+            ns,
+            item_id = itemId,
+            title = canonTitle,
+            content = canonContent,
+            labels,
+            base_version = baseVersion,
+            new_version = newVersion,
+            input_event_id = eventId,
+            policy_version = _policyVersion + "-admin",
+            source = new
+            {
+                repo,
+                @ref = srcRef,
+                path,
+                blob_sha = blobSha,
+            },
+            occurred_at = occurredAt.ToString("o"),
+            emitted_at = DateTimeOffset.UtcNow.ToString("o"),
+        };
+
+        var deltaJson = JsonSerializer.Serialize(delta);
+        var deltaBody = Encoding.UTF8.GetBytes(deltaJson);
+        var msgId = $"admin-{eventId}";
+
+        var headers = new NatsHeaders
+        {
+            { "Nats-Msg-Id", msgId },
+            { "Content-Type", "application/json" },
+        };
+
+        var ack = await _js.PublishAsync(
+            deltaSubject,
+            deltaBody,
+            headers: headers,
+            cancellationToken: ct
+        );
+
+        _log.LogInformation(
+            "[Admin] Promoted {Type} ns={Ns} item={Item} v{V} → {Subj} (stream={Stream}, seq={Seq})",
+            deltaType,
+            ns,
+            itemId,
+            newVersion,
+            deltaSubject,
+            ack.Stream,
+            ack.Seq
+        );
+
+        // Emit audit
+        await EmitAuditAsync(
+            db,
+            msg,
+            ns,
+            itemId,
+            eventId,
+            actionStr: action == "delete" ? "retract" : "upsert",
+            reasonCode: $"admin.{action}",
+            reasonDetail: reason ?? "", // Store raw user input
+            contentHash: contentHash,
+            priorVersion: baseVersion,
+            priorHash: prior == default ? null : prior.Hash,
+            newVersion: newVersion,
+            isSameHash: false,
+            deltaType: deltaType,
+            deltaSubject: deltaSubject,
+            deltaMsgId: msgId,
+            deltasStream: ack.Stream,
+            deltasSeq: (int)ack.Seq,
+            swStart,
+            receivedAt: occurredAt
+        );
+
+        // Mark seen
+        await MarkSeenAsync(db, ns, $"{eventId}-{itemId}");
+
+        await msg.AckAsync();
     }
 }

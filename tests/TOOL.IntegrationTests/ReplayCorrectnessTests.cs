@@ -161,6 +161,146 @@ public class ReplayCorrectnessTests : IAsyncLifetime
         Console.WriteLine($"✅ All {trials} trials produced identical state (SRA = 1.00)");
     }
 
+    [Fact]
+    public async Task Replay_PreservesAdminEdits()
+    {
+        // Skip if NATS is not available
+        if (_replayEngine is null || _js is null)
+        {
+            Console.WriteLine("NATS unavailable, skipping test");
+            return;
+        }
+
+        // Skip if live database doesn't exist
+        if (!File.Exists(_liveDbPath))
+        {
+            Console.WriteLine($"Live database not found at {_liveDbPath}, skipping test");
+            return;
+        }
+
+        // Arrange: Create a unique admin rule
+        var itemId = $"admin-replay-test-{Guid.NewGuid():N}";
+        var eventId = Guid.NewGuid().ToString("N");
+        var occurredAt = DateTimeOffset.UtcNow;
+        var testContent = "This admin rule must be preserved during replay.";
+
+        var adminEvent = new
+        {
+            type = "Admin.RuleCreateRequested",
+            ns = _ns,
+            item_id = itemId,
+            action = "create",
+            title = "Admin Replay Test Rule",
+            content = testContent,
+            labels = new[] { "test", "admin", "replay" },
+            admin_metadata = new
+            {
+                user_id = "replay-test-admin@example.com",
+                reason = "Testing replay preservation of admin edits",
+                bypass_review = true,
+                expected_version = (int?)null,
+            },
+            source = new
+            {
+                repo = "admin.override",
+                @ref = "manual",
+                path = $"admin/replay-test/{occurredAt:yyyy-MM-ddTHH:mm:ssZ}",
+                blob_sha = ComputeSha256ForTest(testContent),
+            },
+            occurred_at = occurredAt,
+            event_id = eventId,
+        };
+
+        var json = System.Text.Json.JsonSerializer.Serialize(
+            adminEvent,
+            new System.Text.Json.JsonSerializerOptions { WriteIndented = false }
+        );
+
+        var headers = new NatsHeaders
+        {
+            { "Nats-Msg-Id", $"admin-{eventId}" },
+            { "Content-Type", "application/json" },
+        };
+
+        // Publish admin event
+        var subject = $"Admin.RuleCreateRequested.{_ns}.{itemId}";
+        var ack = await _js.PublishAsync(subject, Encoding.UTF8.GetBytes(json), headers: headers);
+
+        Console.WriteLine($"Published admin rule {itemId} (stream={ack.Stream}, seq={ack.Seq})");
+
+        // Wait for Promoter + DeltaConsumer to process
+        await Task.Delay(2000);
+
+        // Verify rule exists in live database
+        await using var liveDb = new SqliteConnection($"Data Source={_liveDbPath}");
+        await liveDb.OpenAsync();
+
+        var liveRow = await liveDb.QuerySingleOrDefaultAsync<(
+            int Version,
+            string Title,
+            string Content,
+            int IsActive
+        )>(
+            "SELECT version, title, content, is_active FROM im_items_current WHERE ns=@ns AND item_id=@itemId",
+            new { ns = _ns, itemId }
+        );
+
+        // Assert: Rule exists in live DB
+        Assert.NotEqual(default, liveRow);
+        Assert.Equal("Admin Replay Test Rule", liveRow.Title);
+        Assert.Equal(testContent, liveRow.Content);
+        Assert.Equal(1, liveRow.IsActive);
+
+        Console.WriteLine($"✅ Admin rule exists in live DB: {itemId} v{liveRow.Version}");
+
+        // Act: Replay to temporary database
+        var replayDbPath = Path.Combine(
+            Path.GetTempPath(),
+            $"replay_admin_test_{Guid.NewGuid():N}.db"
+        );
+
+        try
+        {
+            var result = await _replayEngine.ReplayAsync(_ns, replayDbPath);
+
+            Console.WriteLine(
+                $"Replay completed: events={result.EventsProcessed}, activeCount={result.ActiveCount}"
+            );
+
+            // Assert: Admin rule exists in replayed database
+            await using var replayDb = new SqliteConnection($"Data Source={replayDbPath}");
+            await replayDb.OpenAsync();
+
+            var replayRow = await replayDb.QuerySingleOrDefaultAsync<(
+                int Version,
+                string Title,
+                string Content,
+                int IsActive
+            )>(
+                "SELECT version, title, content, is_active FROM im_items_current WHERE ns=@ns AND item_id=@itemId",
+                new { ns = _ns, itemId }
+            );
+
+            Assert.NotEqual(default, replayRow);
+            Assert.Equal(liveRow.Version, replayRow.Version); // Same version
+            Assert.Equal(liveRow.Title, replayRow.Title); // Same title
+            Assert.Equal(liveRow.Content, replayRow.Content); // Same content
+            Assert.Equal(liveRow.IsActive, replayRow.IsActive); // Same active state
+
+            Console.WriteLine(
+                $"✅ Admin rule preserved in replay: {itemId} v{replayRow.Version} (content matches)"
+            );
+        }
+        finally
+        {
+            // Cleanup
+            if (File.Exists(replayDbPath))
+            {
+                File.Delete(replayDbPath);
+            }
+        }
+    }
+
     // ===== Helper: Compute state hash from database =====
 
     private static async Task<(long ActiveCount, string ImHash)> GetStateHashAsync(
@@ -191,6 +331,13 @@ public class ReplayCorrectnessTests : IAsyncLifetime
     {
         using var sha = System.Security.Cryptography.SHA256.Create();
         return Convert.ToHexString(sha.ComputeHash(Encoding.UTF8.GetBytes(s)));
+    }
+
+    private static string ComputeSha256ForTest(string content)
+    {
+        var bytes = Encoding.UTF8.GetBytes(content);
+        var hash = System.Security.Cryptography.SHA256.HashData(bytes);
+        return Convert.ToHexString(hash);
     }
 }
 

@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { useApi } from './hooks/useApi';
 import { useOllama } from './hooks/useOllama';
-import type { DebugItem, StateResponse, SearchResult, CompiledMemory, Message, ReplayResult, ProvenanceResponse } from './types';
+import type { DebugItem, StateResponse, SearchResult, CompiledMemory, Message, ReplayResult, ProvenanceResponse, AdminActionResponse } from './types';
 
 function App() {
-  const [tab, setTab] = useState<'chat' | 'state' | 'items' | 'search' | 'compile' | 'replay'>('chat');
+  const [tab, setTab] = useState<'chat' | 'state' | 'items' | 'search' | 'compile' | 'replay' | 'admin'>('chat');
   const [state, setState] = useState<StateResponse | null>(null);
   const [items, setItems] = useState<DebugItem[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -24,6 +24,17 @@ function App() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [prompt, setPrompt] = useState('');
   const chatEndRef = useRef<HTMLDivElement>(null);
+
+  // Admin CRUD state
+  const [adminMode, setAdminMode] = useState<'list' | 'create' | 'edit'>('list');
+  const [adminItemId, setAdminItemId] = useState('');
+  const [adminTitle, setAdminTitle] = useState('');
+  const [adminContent, setAdminContent] = useState('');
+  const [adminLabels, setAdminLabels] = useState('');
+  const [adminUserId, setAdminUserId] = useState('admin@example.com');
+  const [adminReason, setAdminReason] = useState('');
+  const [adminSelectedItem, setAdminSelectedItem] = useState<DebugItem | null>(null);
+  const [adminActionResult, setAdminActionResult] = useState<AdminActionResponse | null>(null);
 
   const api = useApi();
   const ollama = useOllama();
@@ -148,9 +159,111 @@ function App() {
     }
   };
 
+  // Admin CRUD handlers
+  const handleAdminCreate = async () => {
+    if (!adminItemId.trim() || !adminTitle.trim() || !adminContent.trim() || !adminReason.trim()) {
+      setError('Item ID, title, content, and reason are required');
+      return;
+    }
+    try {
+      setLoading(true);
+      setError(null);
+      const labels = adminLabels.split(',').map((l) => l.trim()).filter((l) => l.length > 0);
+      const result = await api.createRule(adminItemId, adminTitle, adminContent, labels, adminUserId, adminReason);
+      setAdminActionResult(result);
+      // Reset form
+      setAdminItemId('');
+      setAdminTitle('');
+      setAdminContent('');
+      setAdminLabels('');
+      setAdminReason('');
+      setAdminMode('list');
+      // Reload items to see new rule (after delay for processing)
+      setTimeout(() => loadItems(), 2000);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Unknown error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAdminEdit = (item: DebugItem) => {
+    setAdminSelectedItem(item);
+    setAdminItemId(item.item_id);
+    setAdminTitle(item.title);
+    setAdminContent(item.preview); // Note: preview might be truncated, ideally fetch full content
+    setAdminLabels(item.labels_json ? JSON.parse(item.labels_json).join(', ') : '');
+    setAdminReason('');
+    setAdminMode('edit');
+  };
+
+  const handleAdminUpdate = async () => {
+    if (!adminSelectedItem || !adminTitle.trim() || !adminContent.trim() || !adminReason.trim()) {
+      setError('Title, content, and reason are required');
+      return;
+    }
+    try {
+      setLoading(true);
+      setError(null);
+      const labels = adminLabels.split(',').map((l) => l.trim()).filter((l) => l.length > 0);
+      const result = await api.updateRule(
+        adminSelectedItem.item_id,
+        adminTitle,
+        adminContent,
+        labels,
+        adminSelectedItem.version,
+        adminUserId,
+        adminReason
+      );
+      setAdminActionResult(result);
+      // Reset form
+      setAdminSelectedItem(null);
+      setAdminItemId('');
+      setAdminTitle('');
+      setAdminContent('');
+      setAdminLabels('');
+      setAdminReason('');
+      setAdminMode('list');
+      // Reload items
+      setTimeout(() => loadItems(), 2000);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Unknown error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAdminDelete = async (item: DebugItem) => {
+    if (!window.confirm(`Delete rule "${item.title}" (${item.item_id}) v${item.version}?`)) return;
+
+    let reason = '';
+    while (!reason.trim()) {
+      const input = window.prompt('Reason for deletion (required):');
+      if (input === null) return; // User cancelled
+      reason = input.trim();
+      if (!reason) {
+        window.alert('Reason is required. Please provide a reason for this admin action.');
+      }
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+      const result = await api.deleteRule(item.item_id, item.version, adminUserId, reason);
+      setAdminActionResult(result);
+      // Reload items
+      setTimeout(() => loadItems(), 2000);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Unknown error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (tab === 'state') loadState();
     if (tab === 'items') loadItems();
+    if (tab === 'admin') { setAdminMode('list'); loadItems(); }
   }, [tab]);
 
   useEffect(() => {
@@ -179,6 +292,9 @@ function App() {
         </div>
         <div className={`tab ${tab === 'replay' ? 'active' : ''}`} onClick={() => setTab('replay')}>
           Replay (Admin)
+        </div>
+        <div className={`tab ${tab === 'admin' ? 'active' : ''}`} onClick={() => setTab('admin')}>
+          Admin CRUD
         </div>
       </div>
 
@@ -493,6 +609,307 @@ function App() {
               Click "Trigger Replay" to validate event sourcing determinism (H3).
             </div>
           )}
+        </div>
+      )}
+
+      {/* ADMIN CRUD TAB */}
+      {tab === 'admin' && (
+        <div>
+          {adminActionResult && (
+            <div className="card" style={{ background: '#14532d', marginBottom: '16px' }}>
+              <strong>✅ Action Accepted:</strong> {adminActionResult.message}
+              <br />
+              <code className="small">Event ID: {adminActionResult.event_id}</code>
+              <br />
+              <code className="small">Subject: {adminActionResult.subject}</code>
+            </div>
+          )}
+
+          <div className="card">
+            <div className="row" style={{ justifyContent: 'space-between', marginBottom: '16px' }}>
+              <h2>Admin CRUD (v5.0)</h2>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  className="btn"
+                  onClick={() => {
+                    setAdminMode('list');
+                    setAdminSelectedItem(null);
+                    setAdminItemId('');
+                    setAdminTitle('');
+                    setAdminContent('');
+                    setAdminLabels('');
+                    setAdminReason('');
+                  }}
+                  disabled={adminMode === 'list'}
+                >
+                  List Rules
+                </button>
+                <button
+                  className="btn"
+                  onClick={() => {
+                    setAdminMode('create');
+                    setAdminSelectedItem(null);
+                    setAdminItemId('');
+                    setAdminTitle('');
+                    setAdminContent('');
+                    setAdminLabels('');
+                    setAdminReason('');
+                  }}
+                  disabled={adminMode === 'create'}
+                >
+                  Create Rule
+                </button>
+                <button className="btn" onClick={loadItems} disabled={loading}>
+                  {loading ? 'Refreshing...' : 'Refresh'}
+                </button>
+              </div>
+            </div>
+
+            <p style={{ marginBottom: '16px', color: '#94a3b8' }}>
+              Direct admin CRUD operations on rules. Changes flow through EVENTS → Promoter → DELTAS
+              to preserve event sourcing integrity and replay capability.
+            </p>
+
+            {/* CREATE FORM */}
+            {adminMode === 'create' && (
+              <div className="card" style={{ background: '#1e293b' }}>
+                <h3 style={{ marginBottom: '16px' }}>Create New Rule</h3>
+
+                <div style={{ marginBottom: '12px' }}>
+                  <label style={{ display: 'block', marginBottom: '4px', color: '#94a3b8' }}>
+                    Item ID <span style={{ color: '#ef4444' }}>*</span>
+                  </label>
+                  <input
+                    className="input"
+                    placeholder="e.g. rule-001"
+                    value={adminItemId}
+                    onChange={(e) => setAdminItemId(e.target.value)}
+                  />
+                </div>
+
+                <div style={{ marginBottom: '12px' }}>
+                  <label style={{ display: 'block', marginBottom: '4px', color: '#94a3b8' }}>
+                    Title <span style={{ color: '#ef4444' }}>*</span>
+                  </label>
+                  <input
+                    className="input"
+                    placeholder="Rule title"
+                    value={adminTitle}
+                    onChange={(e) => setAdminTitle(e.target.value)}
+                  />
+                </div>
+
+                <div style={{ marginBottom: '12px' }}>
+                  <label style={{ display: 'block', marginBottom: '4px', color: '#94a3b8' }}>
+                    Content <span style={{ color: '#ef4444' }}>*</span>
+                  </label>
+                  <textarea
+                    className="input"
+                    placeholder="Rule content (markdown supported)"
+                    value={adminContent}
+                    onChange={(e) => setAdminContent(e.target.value)}
+                    rows={6}
+                    style={{ fontFamily: 'monospace', fontSize: '13px' }}
+                  />
+                </div>
+
+                <div style={{ marginBottom: '12px' }}>
+                  <label style={{ display: 'block', marginBottom: '4px', color: '#94a3b8' }}>
+                    Labels (comma-separated)
+                  </label>
+                  <input
+                    className="input"
+                    placeholder="e.g. security, api, database"
+                    value={adminLabels}
+                    onChange={(e) => setAdminLabels(e.target.value)}
+                  />
+                </div>
+
+                <div style={{ marginBottom: '12px' }}>
+                  <label style={{ display: 'block', marginBottom: '4px', color: '#94a3b8' }}>
+                    Admin User ID
+                  </label>
+                  <input
+                    className="input"
+                    placeholder="admin@example.com"
+                    value={adminUserId}
+                    onChange={(e) => setAdminUserId(e.target.value)}
+                  />
+                </div>
+
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={{ display: 'block', marginBottom: '4px', color: '#94a3b8' }}>
+                    Reason (required)
+                  </label>
+                  <input
+                    className="input"
+                    placeholder="Why are you creating this rule?"
+                    value={adminReason}
+                    onChange={(e) => setAdminReason(e.target.value)}
+                  />
+                </div>
+
+                <button
+                  className="btn"
+                  onClick={handleAdminCreate}
+                  disabled={loading || !adminItemId.trim() || !adminTitle.trim() || !adminContent.trim() || !adminReason.trim()}
+                >
+                  {loading ? 'Creating...' : 'Create Rule'}
+                </button>
+              </div>
+            )}
+
+            {/* EDIT FORM */}
+            {adminMode === 'edit' && adminSelectedItem && (
+              <div className="card" style={{ background: '#1e293b' }}>
+                <h3 style={{ marginBottom: '16px' }}>
+                  Edit Rule: {adminSelectedItem.item_id}
+                  <span className="tag" style={{ marginLeft: '8px' }}>v{adminSelectedItem.version}</span>
+                </h3>
+
+                <div style={{ marginBottom: '12px' }}>
+                  <label style={{ display: 'block', marginBottom: '4px', color: '#94a3b8' }}>
+                    Title <span style={{ color: '#ef4444' }}>*</span>
+                  </label>
+                  <input
+                    className="input"
+                    value={adminTitle}
+                    onChange={(e) => setAdminTitle(e.target.value)}
+                  />
+                </div>
+
+                <div style={{ marginBottom: '12px' }}>
+                  <label style={{ display: 'block', marginBottom: '4px', color: '#94a3b8' }}>
+                    Content <span style={{ color: '#ef4444' }}>*</span>
+                  </label>
+                  <textarea
+                    className="input"
+                    value={adminContent}
+                    onChange={(e) => setAdminContent(e.target.value)}
+                    rows={6}
+                    style={{ fontFamily: 'monospace', fontSize: '13px' }}
+                  />
+                </div>
+
+                <div style={{ marginBottom: '12px' }}>
+                  <label style={{ display: 'block', marginBottom: '4px', color: '#94a3b8' }}>
+                    Labels (comma-separated)
+                  </label>
+                  <input
+                    className="input"
+                    value={adminLabels}
+                    onChange={(e) => setAdminLabels(e.target.value)}
+                  />
+                </div>
+
+                <div style={{ marginBottom: '12px' }}>
+                  <label style={{ display: 'block', marginBottom: '4px', color: '#94a3b8' }}>
+                    Admin User ID
+                  </label>
+                  <input
+                    className="input"
+                    value={adminUserId}
+                    onChange={(e) => setAdminUserId(e.target.value)}
+                  />
+                </div>
+
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={{ display: 'block', marginBottom: '4px', color: '#94a3b8' }}>
+                    Reason (required)
+                  </label>
+                  <input
+                    className="input"
+                    placeholder="Why are you editing this rule?"
+                    value={adminReason}
+                    onChange={(e) => setAdminReason(e.target.value)}
+                  />
+                </div>
+
+                <div className="card" style={{ background: '#0f172a', marginBottom: '16px' }}>
+                  <strong>⚠️ Optimistic Locking:</strong> This update will only succeed if the current
+                  version is still <code>v{adminSelectedItem.version}</code>. If someone else modified
+                  this rule concurrently, the update will fail with a conflict error.
+                </div>
+
+                <div className="row">
+                  <button
+                    className="btn"
+                    onClick={handleAdminUpdate}
+                    disabled={loading || !adminTitle.trim() || !adminContent.trim() || !adminReason.trim()}
+                  >
+                    {loading ? 'Updating...' : 'Update Rule'}
+                  </button>
+                  <button
+                    className="btn"
+                    onClick={() => setAdminMode('list')}
+                    style={{ background: '#374151' }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* LIST MODE */}
+            {adminMode === 'list' && (
+              <div style={{ overflowX: 'auto' }}>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Item ID</th>
+                      <th>Version</th>
+                      <th>Title</th>
+                      <th>Active</th>
+                      <th>Preview</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {items.map((item, i) => (
+                      <tr key={i}>
+                        <td>
+                          <code className="small">{item.item_id}</code>
+                        </td>
+                        <td>{item.version}</td>
+                        <td>{item.title}</td>
+                        <td>{item.is_active ? '✅' : '❌'}</td>
+                        <td style={{ maxWidth: '400px' }}>
+                          <code className="small">{item.preview}</code>
+                        </td>
+                        <td>
+                          <div style={{ display: 'flex', gap: '4px' }}>
+                            <button
+                              className="btn"
+                              style={{ fontSize: '0.85em', padding: '4px 8px' }}
+                              onClick={() => handleAdminEdit(item)}
+                              disabled={!item.is_active || loading}
+                            >
+                              Edit
+                            </button>
+                            <button
+                              className="btn"
+                              style={{ fontSize: '0.85em', padding: '4px 8px', background: '#7f1d1d' }}
+                              onClick={() => handleAdminDelete(item)}
+                              disabled={!item.is_active || loading}
+                            >
+                              {loading ? 'Deleting...' : 'Delete'}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                    {items.length === 0 && (
+                      <tr>
+                        <td colSpan={6} className="empty">
+                          No items found
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         </div>
       )}
 

@@ -1,7 +1,6 @@
 using System.Text.Json;
 using Dapper;
 using Microsoft.Data.Sqlite;
-using NATS.Client.Core;
 using NATS.Client.JetStream;
 using NATS.Client.JetStream.Models;
 
@@ -314,6 +313,26 @@ public sealed class DeltaConsumer : BackgroundService
                             Policy = policyVersion,
                             OccurredAt = occurredAt.ToString("o"),
                             EmittedAt = emittedAt.ToString("o"),
+                        },
+                        tx
+                    );
+
+                    // Source binding (preserve provenance chain for retractions)
+                    await db.ExecuteAsync(
+                        @"
+                        INSERT OR REPLACE INTO source_bindings
+                          (ns,item_id,version,repo,ref,path,blob_sha)
+                        VALUES
+                          (@Ns,@ItemId,@Version,@Repo,@Ref,@Path,@BlobSha)",
+                        new
+                        {
+                            Ns = ns,
+                            ItemId = itemId,
+                            Version = newVersion,
+                            Repo = repo,
+                            Ref = srcRef,
+                            Path = path,
+                            BlobSha = blobSha,
                         },
                         tx
                     );
