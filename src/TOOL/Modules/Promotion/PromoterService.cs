@@ -11,15 +11,15 @@ using NATS.Client.JetStream.Models;
 namespace TOOL.Modules.Promotion;
 
 // NOTE: This promoter listens to evt.> (all events). If you only want proposals, use "evt.>.proposal.v1".
-public sealed class Promoter : BackgroundService
+public sealed class PromoterService : BackgroundService
 {
     private readonly NatsJSContext _js;
-    private readonly ILogger<Promoter> _log;
+    private readonly ILogger<PromoterService> _log;
     private readonly string _dbPath;
     private readonly string _durable;
     private readonly string _policyVersion;
 
-    public Promoter(NatsJSContext js, ILogger<Promoter> log)
+    public PromoterService(NatsJSContext js, ILogger<PromoterService> log)
     {
         _js = js;
         _log = log;
