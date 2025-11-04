@@ -1045,6 +1045,43 @@ public sealed class Promoter : BackgroundService
 
         if (action == "delete")
         {
+            // Idempotency check: skip if already inactive
+            if (prior != default && prior.Active == 0)
+            {
+                _log.LogInformation(
+                    "[Admin] Rule already inactive, skipping retract. ns={Ns} item={ItemId} v{V}",
+                    ns,
+                    itemId,
+                    baseVersion
+                );
+
+                await EmitAuditAsync(
+                    db,
+                    msg,
+                    ns,
+                    itemId,
+                    eventId,
+                    "skip",
+                    "admin.already_deleted",
+                    "Rule already inactive, idempotent skip",
+                    "",
+                    baseVersion,
+                    prior.Hash,
+                    newVersion: null,
+                    isSameHash: false,
+                    deltaType: null,
+                    deltaSubject: null,
+                    deltaMsgId: null,
+                    deltasStream: null,
+                    deltasSeq: null,
+                    swStart,
+                    receivedAt: TryGetDateTimeOffset(root, "occurred_at") ?? DateTimeOffset.UtcNow
+                );
+
+                await msg.AckAsync();
+                return;
+            }
+
             newVersion = prior == default ? 1 : baseVersion + 1;
             isActiveAfter = false;
             deltaType = "im.retract.v1";
