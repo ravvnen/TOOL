@@ -1,4 +1,4 @@
-using TOOL;
+using TOOL.Configuration;
 using TOOL.Modules.SeedProcessing.Ingestion;
 
 var builder = WebApplication.CreateBuilder(args);

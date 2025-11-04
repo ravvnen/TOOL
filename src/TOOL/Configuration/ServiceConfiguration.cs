@@ -11,7 +11,7 @@ using TOOL.Modules.Replay;
 using TOOL.Modules.SeedProcessing;
 using TOOL.Modules.SeedProcessing.Ingestion;
 
-namespace TOOL;
+namespace TOOL.Configuration;
 
 /// <summary>
 /// Service registration extension. Keeps Program.cs minimal and avoids extra top-level statements.
@@ -54,17 +54,17 @@ public static class ServiceConfiguration
         builder.Services.AddSingleton<ReplayEngine>();
 
         // Stream bootstrappers
-        builder.Services.AddSingleton<IHostedService>(sp => new StreamBootstrapper(
+        builder.Services.AddSingleton<IHostedService>(sp => new StreamBootstrapperService(
             sp.GetRequiredService<NatsJSContext>(),
             "EVENTS",
             new[] { "evt.>" }
         ));
-        builder.Services.AddSingleton<IHostedService>(sp => new StreamBootstrapper(
+        builder.Services.AddSingleton<IHostedService>(sp => new StreamBootstrapperService(
             sp.GetRequiredService<NatsJSContext>(),
             "DELTAS",
             new[] { "delta.>" }
         ));
-        builder.Services.AddSingleton<IHostedService>(sp => new StreamBootstrapper(
+        builder.Services.AddSingleton<IHostedService>(sp => new StreamBootstrapperService(
             sp.GetRequiredService<NatsJSContext>(),
             "AUDITS",
             new[] { "audit.>" }
@@ -76,9 +76,9 @@ public static class ServiceConfiguration
         ).Equals("true", StringComparison.OrdinalIgnoreCase);
         if (promoterEnabled)
         {
-            builder.Services.AddSingleton<IHostedService>(sp => new Promoter(
+            builder.Services.AddSingleton<IHostedService>(sp => new PromoterService(
                 sp.GetRequiredService<NatsJSContext>(),
-                sp.GetRequiredService<ILogger<Promoter>>()
+                sp.GetRequiredService<ILogger<PromoterService>>()
             ));
         }
 
@@ -86,11 +86,11 @@ public static class ServiceConfiguration
         builder.Services.AddSingleton<IHostedService>(sp =>
         {
             var dbFactory = sp.GetRequiredService<AppSqliteFactory>();
-            var logger = sp.GetRequiredService<ILogger<DatabaseInitializer>>();
-            return new DatabaseInitializer(dbFactory, logger);
+            var logger = sp.GetRequiredService<ILogger<DatabaseInitializerService>>();
+            return new DatabaseInitializerService(dbFactory, logger);
         });
 
-        // Delta consumer for centralized processing
-        builder.Services.AddSingleton<IHostedService, DeltaConsumer>();
+        // Delta stream consumer for centralized processing
+        builder.Services.AddSingleton<IHostedService, DeltaStreamConsumerService>();
     }
 }

@@ -1,11 +1,14 @@
 namespace TOOL.Infrastructure.Database;
 
-public sealed class DatabaseInitializer : IHostedService
+public sealed class DatabaseInitializerService : IHostedService
 {
     private readonly AppSqliteFactory _dbFactory;
-    private readonly ILogger<DatabaseInitializer> _log;
+    private readonly ILogger<DatabaseInitializerService> _log;
 
-    public DatabaseInitializer(AppSqliteFactory dbFactory, ILogger<DatabaseInitializer> log)
+    public DatabaseInitializerService(
+        AppSqliteFactory dbFactory,
+        ILogger<DatabaseInitializerService> log
+    )
     {
         _dbFactory = dbFactory;
         _log = log;
