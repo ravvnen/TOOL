@@ -872,7 +872,7 @@ function App() {
                               className="btn"
                               style={{ fontSize: '0.85em', padding: '4px 8px' }}
                               onClick={() => handleAdminEdit(item)}
-                              disabled={!item.is_active}
+                              disabled={!item.is_active || loading}
                             >
                               Edit
                             </button>
@@ -880,9 +880,9 @@ function App() {
                               className="btn"
                               style={{ fontSize: '0.85em', padding: '4px 8px', background: '#7f1d1d' }}
                               onClick={() => handleAdminDelete(item)}
-                              disabled={!item.is_active}
+                              disabled={!item.is_active || loading}
                             >
-                              Delete
+                              {loading ? 'Deleting...' : 'Delete'}
                             </button>
                           </div>
                         </td>
