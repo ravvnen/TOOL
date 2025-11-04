@@ -51,6 +51,9 @@ public sealed record UpdateRuleRequest
 
 public sealed record DeleteRuleRequest
 {
+    [JsonPropertyName("expected_version")]
+    public int? ExpectedVersion { get; init; }
+
     [JsonPropertyName("admin_user_id")]
     public string AdminUserId { get; init; } = "admin";
 

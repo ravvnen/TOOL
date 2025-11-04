@@ -107,8 +107,9 @@ export function useApi() {
       });
     },
 
-    deleteRule: async (itemId: string, adminUserId: string, reason?: string): Promise<AdminActionResponse> => {
+    deleteRule: async (itemId: string, expectedVersion: number | null, adminUserId: string, reason?: string): Promise<AdminActionResponse> => {
       return del(`${API_BASE}/admin/rules/${encodeURIComponent(itemId)}?ns=${NS}`, {
+        expected_version: expectedVersion,
         admin_user_id: adminUserId,
         reason,
       });

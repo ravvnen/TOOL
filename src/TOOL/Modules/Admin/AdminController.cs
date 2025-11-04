@@ -194,7 +194,7 @@ public class AdminController : ControllerBase
                 UserId = request.AdminUserId,
                 Reason = request.Reason,
                 BypassReview = true,
-                ExpectedVersion = null, // Delete doesn't need version check
+                ExpectedVersion = request.ExpectedVersion, // Optimistic locking
             },
             Source = new AdminSourceInfo
             {

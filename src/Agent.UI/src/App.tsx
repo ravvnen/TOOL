@@ -234,12 +234,12 @@ function App() {
   };
 
   const handleAdminDelete = async (item: DebugItem) => {
-    if (!window.confirm(`Delete rule "${item.title}" (${item.item_id})?`)) return;
+    if (!window.confirm(`Delete rule "${item.title}" (${item.item_id}) v${item.version}?`)) return;
     const reason = window.prompt('Reason for deletion (optional):');
     try {
       setLoading(true);
       setError(null);
-      const result = await api.deleteRule(item.item_id, adminUserId, reason || undefined);
+      const result = await api.deleteRule(item.item_id, item.version, adminUserId, reason || undefined);
       setAdminActionResult(result);
       // Reload items
       setTimeout(() => loadItems(), 2000);

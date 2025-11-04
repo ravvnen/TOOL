@@ -972,15 +972,20 @@ public sealed class Promoter : BackgroundService
 
         var baseVersion = prior == default ? 0 : prior.Version;
 
-        // Conflict detection for updates
-        if (action == "update" && expectedVersion.HasValue && baseVersion != expectedVersion.Value)
+        // Conflict detection for updates and deletes (optimistic locking)
+        if (
+            (action == "update" || action == "delete")
+            && expectedVersion.HasValue
+            && baseVersion != expectedVersion.Value
+        )
         {
             _log.LogWarning(
-                "[Admin] Version conflict: expected v{Expected} but current is v{Current}. ns={Ns} item={ItemId}",
+                "[Admin] Version conflict: expected v{Expected} but current is v{Current}. ns={Ns} item={ItemId} action={Action}",
                 expectedVersion.Value,
                 baseVersion,
                 ns,
-                itemId
+                itemId,
+                action
             );
 
             // Emit audit for conflict
