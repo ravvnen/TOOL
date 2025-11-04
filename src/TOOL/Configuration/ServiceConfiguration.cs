@@ -54,17 +54,17 @@ public static class ServiceConfiguration
         builder.Services.AddSingleton<ReplayEngine>();
 
         // Stream bootstrappers
-        builder.Services.AddSingleton<IHostedService>(sp => new StreamBootstrapper(
+        builder.Services.AddSingleton<IHostedService>(sp => new StreamBootstrapperService(
             sp.GetRequiredService<NatsJSContext>(),
             "EVENTS",
             new[] { "evt.>" }
         ));
-        builder.Services.AddSingleton<IHostedService>(sp => new StreamBootstrapper(
+        builder.Services.AddSingleton<IHostedService>(sp => new StreamBootstrapperService(
             sp.GetRequiredService<NatsJSContext>(),
             "DELTAS",
             new[] { "delta.>" }
         ));
-        builder.Services.AddSingleton<IHostedService>(sp => new StreamBootstrapper(
+        builder.Services.AddSingleton<IHostedService>(sp => new StreamBootstrapperService(
             sp.GetRequiredService<NatsJSContext>(),
             "AUDITS",
             new[] { "audit.>" }
@@ -90,7 +90,7 @@ public static class ServiceConfiguration
             return new DatabaseInitializer(dbFactory, logger);
         });
 
-        // Delta consumer for centralized processing
-        builder.Services.AddSingleton<IHostedService, DeltaConsumer>();
+        // Delta stream consumer for centralized processing
+        builder.Services.AddSingleton<IHostedService, DeltaStreamConsumerService>();
     }
 }

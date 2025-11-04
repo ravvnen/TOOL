@@ -23,6 +23,7 @@ public class ReplayController : ControllerBase
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> TriggerReplay([FromBody] ReplayRequest request)
     {
+        // namespace to replay, default if not provided
         var ns = request.Ns ?? "ravvnen.consulting";
 
         // Create temporary database for replay

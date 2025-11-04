@@ -9,15 +9,15 @@ namespace TOOL.Modules.DeltaProjection;
 /// and applies them to the projection database.
 /// Orchestrates DeltaParser and DeltaProjector.
 /// </summary>
-public sealed class DeltaConsumer : BackgroundService
+public sealed class DeltaStreamConsumerService : BackgroundService
 {
     private readonly NatsJSContext _js;
-    private readonly ILogger<DeltaConsumer> _log;
+    private readonly ILogger<DeltaStreamConsumerService> _log;
     private readonly DeltaProjector _projector;
     private readonly string _dbPath;
     private readonly string _durable;
 
-    public DeltaConsumer(NatsJSContext js, ILogger<DeltaConsumer> log)
+    public DeltaStreamConsumerService(NatsJSContext js, ILogger<DeltaStreamConsumerService> log)
     {
         _js = js;
         _log = log;
@@ -50,7 +50,10 @@ public sealed class DeltaConsumer : BackgroundService
             stoppingToken
         );
 
-        _log.LogInformation("DeltaConsumer started: Stream=DELTAS Durable={Durable}", _durable);
+        _log.LogInformation(
+            "DeltaStreamConsumerService started: Stream=DELTAS Durable={Durable}",
+            _durable
+        );
 
         // Consume messages
         await foreach (var msg in consumer.ConsumeAsync<byte[]>().WithCancellation(stoppingToken))
