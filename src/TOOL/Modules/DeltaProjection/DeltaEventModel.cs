@@ -3,7 +3,7 @@ namespace TOOL.Modules.DeltaProjection;
 /// <summary>
 /// Represents a parsed DELTA event message (im.upsert.v1 or im.retract.v1)
 /// </summary>
-public sealed record DeltaMessage
+public sealed record DeltaEvent
 {
     public required string Type { get; init; } // "im.upsert.v1" | "im.retract.v1"
     public required string Ns { get; init; }
