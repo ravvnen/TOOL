@@ -316,6 +316,26 @@ public sealed class DeltaConsumer : BackgroundService
                         },
                         tx
                     );
+
+                    // Source binding (preserve provenance chain for retractions)
+                    await db.ExecuteAsync(
+                        @"
+                        INSERT OR REPLACE INTO source_bindings
+                          (ns,item_id,version,repo,ref,path,blob_sha)
+                        VALUES
+                          (@Ns,@ItemId,@Version,@Repo,@Ref,@Path,@BlobSha)",
+                        new
+                        {
+                            Ns = ns,
+                            ItemId = itemId,
+                            Version = newVersion,
+                            Repo = repo,
+                            Ref = srcRef,
+                            Path = path,
+                            BlobSha = blobSha,
+                        },
+                        tx
+                    );
                 }
 
                 // Mark seen
