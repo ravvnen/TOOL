@@ -1143,6 +1143,7 @@ public sealed class Promoter : BackgroundService
             labels,
             base_version = baseVersion,
             new_version = newVersion,
+            input_event_id = eventId,
             policy_version = _policyVersion + "-admin",
             source = new
             {
