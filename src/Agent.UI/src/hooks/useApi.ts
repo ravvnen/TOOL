@@ -84,7 +84,7 @@ export function useApi() {
     },
 
     // Admin CRUD (v5.0)
-    createRule: async (itemId: string, title: string, content: string, labels: string[], adminUserId: string, reason?: string): Promise<AdminActionResponse> => {
+    createRule: async (itemId: string, title: string, content: string, labels: string[], adminUserId: string, reason: string): Promise<AdminActionResponse> => {
       return post(`${API_BASE}/admin/rules`, {
         ns: NS,
         item_id: itemId,
@@ -96,7 +96,7 @@ export function useApi() {
       });
     },
 
-    updateRule: async (itemId: string, title: string, content: string, labels: string[], expectedVersion: number | null, adminUserId: string, reason?: string): Promise<AdminActionResponse> => {
+    updateRule: async (itemId: string, title: string, content: string, labels: string[], expectedVersion: number | null, adminUserId: string, reason: string): Promise<AdminActionResponse> => {
       return put(`${API_BASE}/admin/rules/${encodeURIComponent(itemId)}?ns=${NS}`, {
         title,
         content,
@@ -107,7 +107,7 @@ export function useApi() {
       });
     },
 
-    deleteRule: async (itemId: string, expectedVersion: number | null, adminUserId: string, reason?: string): Promise<AdminActionResponse> => {
+    deleteRule: async (itemId: string, expectedVersion: number | null, adminUserId: string, reason: string): Promise<AdminActionResponse> => {
       return del(`${API_BASE}/admin/rules/${encodeURIComponent(itemId)}?ns=${NS}`, {
         expected_version: expectedVersion,
         admin_user_id: adminUserId,

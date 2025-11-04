@@ -41,6 +41,8 @@ public class AdminController : ControllerBase
             return BadRequest(new { error = "title is required" });
         if (string.IsNullOrWhiteSpace(request.Content))
             return BadRequest(new { error = "content is required" });
+        if (string.IsNullOrWhiteSpace(request.Reason))
+            return BadRequest(new { error = "reason is required" });
 
         var eventId = Guid.NewGuid().ToString("N");
         var occurredAt = DateTimeOffset.UtcNow;
@@ -110,6 +112,8 @@ public class AdminController : ControllerBase
             return BadRequest(new { error = "title is required" });
         if (string.IsNullOrWhiteSpace(request.Content))
             return BadRequest(new { error = "content is required" });
+        if (string.IsNullOrWhiteSpace(request.Reason))
+            return BadRequest(new { error = "reason is required" });
 
         var eventId = Guid.NewGuid().ToString("N");
         var occurredAt = DateTimeOffset.UtcNow;
@@ -175,6 +179,8 @@ public class AdminController : ControllerBase
         // Validate
         if (string.IsNullOrWhiteSpace(itemId))
             return BadRequest(new { error = "item_id is required" });
+        if (string.IsNullOrWhiteSpace(request.Reason))
+            return BadRequest(new { error = "reason is required" });
 
         var eventId = Guid.NewGuid().ToString("N");
         var occurredAt = DateTimeOffset.UtcNow;

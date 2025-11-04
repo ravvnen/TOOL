@@ -161,15 +161,15 @@ function App() {
 
   // Admin CRUD handlers
   const handleAdminCreate = async () => {
-    if (!adminItemId.trim() || !adminTitle.trim() || !adminContent.trim()) {
-      setError('Item ID, title, and content are required');
+    if (!adminItemId.trim() || !adminTitle.trim() || !adminContent.trim() || !adminReason.trim()) {
+      setError('Item ID, title, content, and reason are required');
       return;
     }
     try {
       setLoading(true);
       setError(null);
       const labels = adminLabels.split(',').map((l) => l.trim()).filter((l) => l.length > 0);
-      const result = await api.createRule(adminItemId, adminTitle, adminContent, labels, adminUserId, adminReason || undefined);
+      const result = await api.createRule(adminItemId, adminTitle, adminContent, labels, adminUserId, adminReason);
       setAdminActionResult(result);
       // Reset form
       setAdminItemId('');
@@ -198,8 +198,8 @@ function App() {
   };
 
   const handleAdminUpdate = async () => {
-    if (!adminSelectedItem || !adminTitle.trim() || !adminContent.trim()) {
-      setError('Title and content are required');
+    if (!adminSelectedItem || !adminTitle.trim() || !adminContent.trim() || !adminReason.trim()) {
+      setError('Title, content, and reason are required');
       return;
     }
     try {
@@ -213,7 +213,7 @@ function App() {
         labels,
         adminSelectedItem.version,
         adminUserId,
-        adminReason || undefined
+        adminReason
       );
       setAdminActionResult(result);
       // Reset form
@@ -235,11 +235,21 @@ function App() {
 
   const handleAdminDelete = async (item: DebugItem) => {
     if (!window.confirm(`Delete rule "${item.title}" (${item.item_id}) v${item.version}?`)) return;
-    const reason = window.prompt('Reason for deletion (optional):');
+
+    let reason = '';
+    while (!reason.trim()) {
+      const input = window.prompt('Reason for deletion (required):');
+      if (input === null) return; // User cancelled
+      reason = input.trim();
+      if (!reason) {
+        window.alert('Reason is required. Please provide a reason for this admin action.');
+      }
+    }
+
     try {
       setLoading(true);
       setError(null);
-      const result = await api.deleteRule(item.item_id, item.version, adminUserId, reason || undefined);
+      const result = await api.deleteRule(item.item_id, item.version, adminUserId, reason);
       setAdminActionResult(result);
       // Reload items
       setTimeout(() => loadItems(), 2000);
@@ -729,7 +739,7 @@ function App() {
 
                 <div style={{ marginBottom: '16px' }}>
                   <label style={{ display: 'block', marginBottom: '4px', color: '#94a3b8' }}>
-                    Reason (optional)
+                    Reason (required)
                   </label>
                   <input
                     className="input"
@@ -742,7 +752,7 @@ function App() {
                 <button
                   className="btn"
                   onClick={handleAdminCreate}
-                  disabled={loading || !adminItemId.trim() || !adminTitle.trim() || !adminContent.trim()}
+                  disabled={loading || !adminItemId.trim() || !adminTitle.trim() || !adminContent.trim() || !adminReason.trim()}
                 >
                   {loading ? 'Creating...' : 'Create Rule'}
                 </button>
@@ -805,7 +815,7 @@ function App() {
 
                 <div style={{ marginBottom: '16px' }}>
                   <label style={{ display: 'block', marginBottom: '4px', color: '#94a3b8' }}>
-                    Reason (optional)
+                    Reason (required)
                   </label>
                   <input
                     className="input"
@@ -825,7 +835,7 @@ function App() {
                   <button
                     className="btn"
                     onClick={handleAdminUpdate}
-                    disabled={loading || !adminTitle.trim() || !adminContent.trim()}
+                    disabled={loading || !adminTitle.trim() || !adminContent.trim() || !adminReason.trim()}
                   >
                     {loading ? 'Updating...' : 'Update Rule'}
                   </button>

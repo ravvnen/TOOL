@@ -25,7 +25,7 @@ public sealed record CreateRuleRequest
     public string AdminUserId { get; init; } = "admin";
 
     [JsonPropertyName("reason")]
-    public string? Reason { get; init; }
+    public string Reason { get; init; } = "";
 }
 
 public sealed record UpdateRuleRequest
@@ -46,7 +46,7 @@ public sealed record UpdateRuleRequest
     public string AdminUserId { get; init; } = "admin";
 
     [JsonPropertyName("reason")]
-    public string? Reason { get; init; }
+    public string Reason { get; init; } = "";
 }
 
 public sealed record DeleteRuleRequest
@@ -58,7 +58,7 @@ public sealed record DeleteRuleRequest
     public string AdminUserId { get; init; } = "admin";
 
     [JsonPropertyName("reason")]
-    public string? Reason { get; init; }
+    public string Reason { get; init; } = "";
 }
 
 public sealed record AdminActionResponse
@@ -120,7 +120,7 @@ public sealed record AdminMetadata
     public string UserId { get; init; } = "";
 
     [JsonPropertyName("reason")]
-    public string? Reason { get; init; }
+    public string Reason { get; init; } = "";
 
     [JsonPropertyName("bypass_review")]
     public bool BypassReview { get; init; } = true; // Auto-promote by default
