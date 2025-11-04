@@ -234,8 +234,8 @@ function App() {
   };
 
   const handleAdminDelete = async (item: DebugItem) => {
-    if (!confirm(`Delete rule "${item.title}" (${item.item_id})?`)) return;
-    const reason = prompt('Reason for deletion (optional):');
+    if (!window.confirm(`Delete rule "${item.title}" (${item.item_id})?`)) return;
+    const reason = window.prompt('Reason for deletion (optional):');
     try {
       setLoading(true);
       setError(null);
