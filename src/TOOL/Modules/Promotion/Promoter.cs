@@ -1234,8 +1234,8 @@ public sealed class Promoter : BackgroundService
             itemId,
             eventId,
             actionStr: action == "delete" ? "retract" : "upsert",
-            reasonCode: "admin.override",
-            reasonDetail: $"Admin {action} by {userId}: {reason}",
+            reasonCode: $"admin.{action}",
+            reasonDetail: reason ?? "", // Store raw user input
             contentHash: contentHash,
             priorVersion: baseVersion,
             priorHash: prior == default ? null : prior.Hash,
