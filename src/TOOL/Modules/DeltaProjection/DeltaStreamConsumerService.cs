@@ -35,7 +35,7 @@ public sealed class DeltaStreamConsumerService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        //by DatabaseIni Create database connection (schema already initialized tializerService)
+        // Create database connection (schema already initialized by DatabaseInitializerService)
         await using var db = _dbFactory.Open(_dbPath);
 
         // Create NATS consumer
