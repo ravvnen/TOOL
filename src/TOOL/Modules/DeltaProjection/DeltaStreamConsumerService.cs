@@ -1,6 +1,7 @@
 using Microsoft.Data.Sqlite;
 using NATS.Client.JetStream;
 using NATS.Client.JetStream.Models;
+using TOOL.Infrastructure.Database;
 
 namespace TOOL.Modules.DeltaProjection;
 
@@ -13,13 +14,19 @@ public sealed class DeltaStreamConsumerService : BackgroundService
 {
     private readonly NatsJSContext _js;
     private readonly ILogger<DeltaStreamConsumerService> _log;
+    private readonly AppSqliteFactory _dbFactory;
     private readonly DeltaProjector _projector;
     private readonly string _dbPath;
     private readonly string _durable;
 
-    public DeltaStreamConsumerService(NatsJSContext js, ILogger<DeltaStreamConsumerService> log)
+    public DeltaStreamConsumerService(
+        NatsJSContext js,
+        AppSqliteFactory dbFactory,
+        ILogger<DeltaStreamConsumerService> log
+    )
     {
         _js = js;
+        _dbFactory = dbFactory;
         _log = log;
         _projector = new DeltaProjector();
         _dbPath = Environment.GetEnvironmentVariable("RULES_DB_PATH") ?? "rules.db";
@@ -28,12 +35,8 @@ public sealed class DeltaStreamConsumerService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        // Create database connection
-        await using var db = new SqliteConnection($"Data Source={_dbPath}");
-        await db.OpenAsync(stoppingToken);
-
-        // Initialize database schema
-        await _projector.InitializeSchemaAsync(db, stoppingToken);
+        // Create database connection (schema already initialized by DatabaseInitializerService)
+        await using var db = _dbFactory.Open(_dbPath);
 
         // Create NATS consumer
         var consumer = await _js.CreateOrUpdateConsumerAsync(

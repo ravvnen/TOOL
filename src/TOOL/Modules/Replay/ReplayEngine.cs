@@ -6,6 +6,7 @@ using Microsoft.Data.Sqlite;
 using NATS.Client.Core;
 using NATS.Client.JetStream;
 using NATS.Client.JetStream.Models;
+using TOOL.Infrastructure.Database;
 
 namespace TOOL.Modules.Replay;
 
@@ -15,11 +16,13 @@ namespace TOOL.Modules.Replay;
 public sealed class ReplayEngine
 {
     private readonly NatsJSContext _js;
+    private readonly AppSqliteFactory _dbFactory;
     private readonly ILogger<ReplayEngine> _log;
 
-    public ReplayEngine(NatsJSContext js, ILogger<ReplayEngine> log)
+    public ReplayEngine(NatsJSContext js, AppSqliteFactory dbFactory, ILogger<ReplayEngine> log)
     {
         _js = js;
+        _dbFactory = dbFactory;
         _log = log;
     }
 
@@ -49,8 +52,7 @@ public sealed class ReplayEngine
         );
 
         // 1) Initialize fresh database with projection schema
-        await using var db = new SqliteConnection($"Data Source={outputDbPath}");
-        await db.OpenAsync(ct);
+        await using var db = _dbFactory.Open(outputDbPath);
         await InitializeDatabaseAsync(db, ct);
 
         // 2) Create ephemeral consumer (no durable name)

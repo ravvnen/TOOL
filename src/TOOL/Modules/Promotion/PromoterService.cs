@@ -7,6 +7,7 @@ using Microsoft.Data.Sqlite;
 using NATS.Client.Core;
 using NATS.Client.JetStream;
 using NATS.Client.JetStream.Models;
+using TOOL.Infrastructure.Database;
 
 namespace TOOL.Modules.Promotion;
 
@@ -19,7 +20,13 @@ public sealed class PromoterService : BackgroundService
     private readonly string _durable;
     private readonly string _policyVersion;
 
-    public PromoterService(NatsJSContext js, ILogger<PromoterService> log)
+    private readonly AppSqliteFactory _dbFactory;
+
+    public PromoterService(
+        NatsJSContext js,
+        ILogger<PromoterService> log,
+        AppSqliteFactory dbFactory
+    )
     {
         _js = js;
         _log = log;
@@ -27,6 +34,7 @@ public sealed class PromoterService : BackgroundService
         _durable = Environment.GetEnvironmentVariable("PROMOTER_DURABLE") ?? "promoter-main";
         _policyVersion =
             Environment.GetEnvironmentVariable("PROMOTER_POLICY_VERSION") ?? "promoter-1.0.0";
+        _dbFactory = dbFactory;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -35,8 +43,7 @@ public sealed class PromoterService : BackgroundService
         await EnsureAuditStreamAsync(stoppingToken);
 
         // 1) DB init (WAL, indices, normalized schema)
-        await using var db = new SqliteConnection($"Data Source={_dbPath}");
-        await db.OpenAsync(stoppingToken);
+        await using var db = _dbFactory.Open(_dbPath);
 
         const string ddl = """
             PRAGMA journal_mode = WAL;

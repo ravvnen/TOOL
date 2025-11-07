@@ -3,6 +3,7 @@ using Microsoft.Extensions.Hosting;
 using NATS.Client.Core;
 using NATS.Client.JetStream;
 using TOOL.Infrastructure.Database;
+using TOOL.Infrastructure.Database.Schema;
 using TOOL.Infrastructure.Messaging;
 using TOOL.Modules.DeltaProjection;
 using TOOL.Modules.MemoryManagement;
@@ -18,6 +19,10 @@ namespace TOOL.Configuration;
 /// </summary>
 public static class ServiceConfiguration
 {
+    private static readonly string[] EventStreamSubjects = new[] { "evt.>" };
+    private static readonly string[] DeltaStreamSubjects = new[] { "delta.>" };
+    private static readonly string[] AuditStreamSubjects = new[] { "audit.>" };
+
     public static void AddApplicationServices(this WebApplicationBuilder builder)
     {
         // Controllers
@@ -50,6 +55,7 @@ public static class ServiceConfiguration
 
         // Centralized database and memory services
         builder.Services.AddSingleton<AppSqliteFactory>();
+        builder.Services.AddSingleton<RulesDbSchema>();
         builder.Services.AddSingleton<MemoryCompiler>();
         builder.Services.AddSingleton<ReplayEngine>();
 
@@ -57,17 +63,17 @@ public static class ServiceConfiguration
         builder.Services.AddSingleton<IHostedService>(sp => new StreamBootstrapperService(
             sp.GetRequiredService<NatsJSContext>(),
             "EVENTS",
-            new[] { "evt.>" }
+            EventStreamSubjects
         ));
         builder.Services.AddSingleton<IHostedService>(sp => new StreamBootstrapperService(
             sp.GetRequiredService<NatsJSContext>(),
             "DELTAS",
-            new[] { "delta.>" }
+            DeltaStreamSubjects
         ));
         builder.Services.AddSingleton<IHostedService>(sp => new StreamBootstrapperService(
             sp.GetRequiredService<NatsJSContext>(),
             "AUDITS",
-            new[] { "audit.>" }
+            AuditStreamSubjects
         ));
 
         // Promoter (optional)
@@ -78,7 +84,8 @@ public static class ServiceConfiguration
         {
             builder.Services.AddSingleton<IHostedService>(sp => new PromoterService(
                 sp.GetRequiredService<NatsJSContext>(),
-                sp.GetRequiredService<ILogger<PromoterService>>()
+                sp.GetRequiredService<ILogger<PromoterService>>(),
+                sp.GetRequiredService<AppSqliteFactory>()
             ));
         }
 
@@ -87,7 +94,7 @@ public static class ServiceConfiguration
         {
             var dbFactory = sp.GetRequiredService<AppSqliteFactory>();
             var logger = sp.GetRequiredService<ILogger<DatabaseInitializerService>>();
-            return new DatabaseInitializerService(dbFactory, logger);
+            return new DatabaseInitializerService(dbFactory, sp, logger);
         });
 
         // Delta stream consumer for centralized processing
