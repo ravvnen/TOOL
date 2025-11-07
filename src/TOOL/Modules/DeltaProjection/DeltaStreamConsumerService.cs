@@ -20,9 +20,10 @@ public sealed class DeltaStreamConsumerService : BackgroundService
     private readonly string _durable;
 
     public DeltaStreamConsumerService(
-        NatsJSContext js, 
+        NatsJSContext js,
         AppSqliteFactory dbFactory,
-        ILogger<DeltaStreamConsumerService> log)
+        ILogger<DeltaStreamConsumerService> log
+    )
     {
         _js = js;
         _dbFactory = dbFactory;
