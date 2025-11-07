@@ -72,6 +72,7 @@ public class RulesDbSchema
         );
 
         // Create deltas seen events table
+        // Used for idempotency tracking of processed delta events.
         await db.ExecuteAsync(
             @"
         CREATE TABLE IF NOT EXISTS deltas_seen_events (
