@@ -1,9 +1,9 @@
 using System.Text.RegularExpressions;
 using Dapper;
 using Microsoft.Data.Sqlite;
-using TOOL.Infrastructure.Database;
+using Infrastructure.Database;
 
-namespace TOOL.Modules.MemoryManagement;
+namespace Modules.MemoryManagement;
 
 public sealed class MemoryCompiler
 {

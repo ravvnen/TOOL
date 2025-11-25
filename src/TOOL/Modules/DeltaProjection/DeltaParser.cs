@@ -1,6 +1,7 @@
 using System.Text.Json;
+using Buildingblocks.Utils;
 
-namespace TOOL.Modules.DeltaProjection;
+namespace Modules.DeltaProjection;
 
 /// <summary>
 /// Pure parser for DELTA events. No external dependencies.
@@ -24,9 +25,9 @@ public static class DeltaParser
 
             // Required fields
             if (
-                !TryGetString(root, "ns", out var ns)
-                || !TryGetString(root, "item_id", out var itemId)
-                || !TryGetString(root, "policy_version", out var policyVersion)
+                !JsonHelper.TryGetString(root, "ns", out var ns)
+                || !JsonHelper.TryGetString(root, "item_id", out var itemId)
+                || !JsonHelper.TryGetString(root, "policy_version", out var policyVersion)
             )
             {
                 return null;
@@ -38,9 +39,9 @@ public static class DeltaParser
                 return null;
             }
 
-            var type = GetStringOrEmpty(root, "type");
-            var title = GetStringOrEmpty(root, "title");
-            var content = GetStringOrEmpty(root, "content");
+            var type = JsonHelper.GetStringOrEmpty(root, "type");
+            var title = JsonHelper.GetStringOrEmpty(root, "title");
+            var content = JsonHelper.GetStringOrEmpty(root, "content");
             var labels =
                 root.TryGetProperty("labels", out var labelsEl)
                 && labelsEl.ValueKind == JsonValueKind.Array
@@ -59,15 +60,15 @@ public static class DeltaParser
                     ? bv.GetInt32()
                     : 0;
 
-            var occurredAt = TryGetDateTimeOffset(root, "occurred_at") ?? DateTimeOffset.UtcNow;
-            var emittedAt = TryGetDateTimeOffset(root, "emitted_at") ?? DateTimeOffset.UtcNow;
+            var occurredAt = JsonHelper.TryGetDateTimeOffset(root, "occurred_at") ?? DateTimeOffset.UtcNow;
+            var emittedAt = JsonHelper.TryGetDateTimeOffset(root, "emitted_at") ?? DateTimeOffset.UtcNow;
 
-            var repo = GetStringOrEmpty(source, "repo");
-            var srcRef = GetStringOrEmpty(source, "ref");
-            var path = GetStringOrEmpty(source, "path");
-            var blobSha = GetStringOrEmpty(source, "blob_sha");
+            var repo = JsonHelper.GetStringOrEmpty(source, "repo");
+            var srcRef = JsonHelper.GetStringOrEmpty(source, "ref");
+            var path = JsonHelper.GetStringOrEmpty(source, "path");
+            var blobSha = JsonHelper.GetStringOrEmpty(source, "blob_sha");
 
-            var inputEventId = GetStringOrEmpty(root, "input_event_id");
+            var inputEventId = JsonHelper.GetStringOrEmpty(root, "input_event_id");
 
             return new DeltaEvent
             {
@@ -93,34 +94,5 @@ public static class DeltaParser
         {
             return null;
         }
-    }
-
-    // ===== Helper methods =====
-
-    private static bool TryGetString(JsonElement el, string name, out string value)
-    {
-        value = "";
-        if (el.TryGetProperty(name, out var p) && p.ValueKind == JsonValueKind.String)
-        {
-            value = p.GetString() ?? "";
-            return true;
-        }
-        return false;
-    }
-
-    private static string GetStringOrEmpty(JsonElement el, string name) =>
-        el.TryGetProperty(name, out var p) && p.ValueKind == JsonValueKind.String
-            ? (p.GetString() ?? "")
-            : "";
-
-    private static DateTimeOffset? TryGetDateTimeOffset(JsonElement el, string name)
-    {
-        if (
-            el.TryGetProperty(name, out var p)
-            && p.ValueKind == JsonValueKind.String
-            && DateTimeOffset.TryParse(p.GetString(), out var dto)
-        )
-            return dto;
-        return null;
     }
 }

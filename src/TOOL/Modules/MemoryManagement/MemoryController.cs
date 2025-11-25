@@ -1,9 +1,9 @@
 using System.Text.Json;
 using Dapper;
 using Microsoft.AspNetCore.Mvc;
-using TOOL.Infrastructure.Database;
+using Infrastructure.Database;
 
-namespace TOOL.Modules.MemoryManagement;
+namespace Modules.MemoryManagement;
 
 [ApiController]
 [Route("api/v1")]

@@ -3,10 +3,10 @@ using Dapper;
 using Microsoft.Data.Sqlite;
 using NATS.Client.Core;
 using NATS.Client.JetStream;
-using TOOL.Modules.Replay;
+using Modules.Replay;
 using Xunit;
 
-namespace TOOL.IntegrationTests;
+namespace IntegrationTests;
 
 /// <summary>
 /// Integration tests for replay correctness (H3: Replayability & Determinism)

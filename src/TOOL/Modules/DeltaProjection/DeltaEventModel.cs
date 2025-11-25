@@ -1,4 +1,4 @@
-namespace TOOL.Modules.DeltaProjection;
+namespace Modules.DeltaProjection;
 
 /// <summary>
 /// Represents a parsed DELTA event message (im.upsert.v1 or im.retract.v1)

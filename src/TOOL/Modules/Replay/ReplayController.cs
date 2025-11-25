@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 
-namespace TOOL.Modules.Replay;
+namespace Modules.Replay;
 
 [ApiController]
 [Route("api/v1/admin")]

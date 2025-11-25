@@ -6,9 +6,9 @@ using Microsoft.Data.Sqlite;
 using NATS.Client.Core;
 using NATS.Client.JetStream;
 using NATS.Client.JetStream.Models;
-using TOOL.Infrastructure.Database;
+using Infrastructure.Database;
 
-namespace TOOL.Modules.Replay;
+namespace Modules.Replay;
 
 /// <summary>
 /// Stateless replay engine: reconstructs IM state from DELTAS stream

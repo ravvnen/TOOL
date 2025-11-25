@@ -1,5 +1,5 @@
-using TOOL.Configuration;
-using TOOL.Modules.SeedProcessing.Ingestion;
+using Configuration;
+using Modules.SeedProcessing;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.AddApplicationServices();

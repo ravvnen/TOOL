@@ -1,9 +1,9 @@
 using Microsoft.Data.Sqlite;
 using NATS.Client.JetStream;
 using NATS.Client.JetStream.Models;
-using TOOL.Infrastructure.Database;
+using Infrastructure.Database;
 
-namespace TOOL.Modules.DeltaProjection;
+namespace Modules.DeltaProjection;
 
 /// <summary>
 /// Background service that consumes DELTA events from NATS JetStream

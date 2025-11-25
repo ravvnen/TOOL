@@ -1,6 +1,6 @@
-using TOOL.Infrastructure.Database.Schema;
+using Infrastructure.Database.Schema;
 
-namespace TOOL.Infrastructure.Database;
+namespace Infrastructure.Database;
 
 public sealed class DatabaseInitializerService : IHostedService
 {

@@ -1,18 +1,15 @@
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
 using NATS.Client.Core;
 using NATS.Client.JetStream;
-using TOOL.Infrastructure.Database;
-using TOOL.Infrastructure.Database.Schema;
-using TOOL.Infrastructure.Messaging;
-using TOOL.Modules.DeltaProjection;
-using TOOL.Modules.MemoryManagement;
-using TOOL.Modules.Promotion;
-using TOOL.Modules.Replay;
-using TOOL.Modules.SeedProcessing;
-using TOOL.Modules.SeedProcessing.Ingestion;
+using Infrastructure.Database;
+using Infrastructure.Database.Schema;
+using Infrastructure.Messaging;
+using Modules.DeltaProjection;
+using Modules.MemoryManagement;
+using Modules.Promotion;
+using Modules.Replay;
+using Modules.SeedProcessing;
 
-namespace TOOL.Configuration;
+namespace Configuration;
 
 /// <summary>
 /// Service registration extension. Keeps Program.cs minimal and avoids extra top-level statements.

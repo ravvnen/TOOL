@@ -2,7 +2,7 @@ using System.Security.Cryptography.X509Certificates;
 using System.Text.Json.Serialization;
 using NATS.Client.JetStream.Models;
 
-namespace TOOL.Modules.SeedProcessing;
+namespace Modules.SeedProcessing;
 
 public sealed record SeedDto
 {

@@ -1,7 +1,7 @@
 using Dapper;
 using Microsoft.Data.Sqlite;
 
-namespace TOOL.Modules.DeltaProjection;
+namespace Modules.DeltaProjection;
 
 /// <summary>
 /// Handles projection of DELTA events to SQLite database.

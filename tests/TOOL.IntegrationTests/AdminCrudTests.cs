@@ -6,7 +6,7 @@ using NATS.Client.Core;
 using NATS.Client.JetStream;
 using Xunit;
 
-namespace TOOL.IntegrationTests;
+namespace IntegrationTests;
 
 /// <summary>
 /// Integration tests for Admin CRUD operations (v5.0-01)

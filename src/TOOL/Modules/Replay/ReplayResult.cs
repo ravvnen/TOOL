@@ -1,4 +1,4 @@
-namespace TOOL.Modules.Replay;
+namespace Modules.Replay;
 
 /// <summary>
 /// Result of a replay operation

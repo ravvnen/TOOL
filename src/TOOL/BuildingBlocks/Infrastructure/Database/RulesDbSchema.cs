@@ -1,7 +1,7 @@
 using Dapper;
 using Microsoft.Data.Sqlite;
 
-namespace TOOL.Infrastructure.Database.Schema;
+namespace Infrastructure.Database.Schema;
 
 public class RulesDbSchema
 {

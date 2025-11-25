@@ -7,9 +7,10 @@ using Microsoft.Data.Sqlite;
 using NATS.Client.Core;
 using NATS.Client.JetStream;
 using NATS.Client.JetStream.Models;
-using TOOL.Infrastructure.Database;
+using Infrastructure.Database;
+using Buildingblocks.Utils;
 
-namespace TOOL.Modules.Promotion;
+namespace Modules.Promotion;
 
 // NOTE: This promoter listens to evt.> (all events). If you only want proposals, use "evt.>.proposal.v1".
 public sealed class PromoterService : BackgroundService

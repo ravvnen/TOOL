@@ -1,4 +1,4 @@
-namespace TOOL.Modules.SeedProcessing;
+namespace Modules.SeedProcessing;
 
 public interface ISeedHandler
 {

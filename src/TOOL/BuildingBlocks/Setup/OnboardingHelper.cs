@@ -4,7 +4,7 @@ using NATS.Client.Core;
 using NATS.Client.JetStream;
 using NATS.Client.JetStream.Models;
 
-namespace TOOL.Setup;
+namespace Setup;
 
 /// <summary>
 /// Interactive onboarding helper. Call manually (e.g. when passing a --onboard flag) BEFORE starting the web host.
