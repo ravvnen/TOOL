@@ -71,3 +71,5 @@ promoter.db-*
 
 walker.py
 structure.**
+docs/
+docs/*
