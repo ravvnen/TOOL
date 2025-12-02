@@ -2,12 +2,11 @@ using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 using Dapper;
+using Infrastructure.Database;
 using Microsoft.Data.Sqlite;
-using NATS.Client.Core;
 using NATS.Client.JetStream;
 using NATS.Client.JetStream.Models;
-using Infrastructure.Database;
-
+using Buildingblocks.Utils;
 namespace Modules.Replay;
 
 /// <summary>
@@ -118,10 +117,10 @@ public sealed class ReplayEngine
                 var root = doc.RootElement;
 
                 if (
-                    !TryGetString(root, "ns", out var eventNs)
+                    !JsonHelper.TryGetString(root, "ns", out var eventNs)
                     || eventNs != ns
-                    || !TryGetString(root, "item_id", out var itemId)
-                    || !TryGetString(root, "policy_version", out var policyVersion)
+                    || !JsonHelper.TryGetString(root, "item_id", out var itemId)
+                    || !JsonHelper.TryGetString(root, "policy_version", out var policyVersion)
                 )
                 {
                     _log.LogWarning(
@@ -133,9 +132,9 @@ public sealed class ReplayEngine
                     continue;
                 }
 
-                var type = GetStringOrEmpty(root, "type");
-                var title = GetStringOrEmpty(root, "title");
-                var content = GetStringOrEmpty(root, "content");
+                var type = JsonHelper.GetStringOrEmpty(root, "type");
+                var title = JsonHelper.GetStringOrEmpty(root, "title");
+                var content = JsonHelper.GetStringOrEmpty(root, "content");
                 var labels =
                     root.TryGetProperty("labels", out var labelsEl)
                     && labelsEl.ValueKind == JsonValueKind.Array
@@ -148,14 +147,14 @@ public sealed class ReplayEngine
                         : "[]";
                 var newVersion = root.GetProperty("new_version").GetInt32();
 
-                var occurredAt = TryGetDateTimeOffset(root, "occurred_at") ?? DateTimeOffset.UtcNow;
-                var emittedAt = TryGetDateTimeOffset(root, "emitted_at") ?? DateTimeOffset.UtcNow;
+                var occurredAt = JsonHelper.TryGetDateTimeOffset(root, "occurred_at") ?? DateTimeOffset.UtcNow;
+                var emittedAt = JsonHelper.TryGetDateTimeOffset(root, "emitted_at") ?? DateTimeOffset.UtcNow;
 
                 var source = root.GetProperty("source");
-                var repo = GetStringOrEmpty(source, "repo");
-                var srcRef = GetStringOrEmpty(source, "ref");
-                var path = GetStringOrEmpty(source, "path");
-                var blobSha = GetStringOrEmpty(source, "blob_sha");
+                var repo = JsonHelper.GetStringOrEmpty(source, "repo");
+                var srcRef = JsonHelper.GetStringOrEmpty(source, "ref");
+                var path = JsonHelper.GetStringOrEmpty(source, "path");
+                var blobSha = JsonHelper.GetStringOrEmpty(source, "blob_sha");
 
                 // Apply DELTA to fresh database (no transaction needed for single consumer)
                 using var tx = db.BeginTransaction();
@@ -487,34 +486,5 @@ public sealed class ReplayEngine
     {
         using var sha = System.Security.Cryptography.SHA256.Create();
         return Convert.ToHexString(sha.ComputeHash(Encoding.UTF8.GetBytes(s)));
-    }
-
-    // ===== JSON Helpers =====
-
-    private static bool TryGetString(JsonElement el, string name, out string value)
-    {
-        value = "";
-        if (el.TryGetProperty(name, out var p) && p.ValueKind == JsonValueKind.String)
-        {
-            value = p.GetString() ?? "";
-            return true;
-        }
-        return false;
-    }
-
-    private static string GetStringOrEmpty(JsonElement el, string name) =>
-        el.TryGetProperty(name, out var p) && p.ValueKind == JsonValueKind.String
-            ? (p.GetString() ?? "")
-            : "";
-
-    private static DateTimeOffset? TryGetDateTimeOffset(JsonElement el, string name)
-    {
-        if (
-            el.TryGetProperty(name, out var p)
-            && p.ValueKind == JsonValueKind.String
-            && DateTimeOffset.TryParse(p.GetString(), out var dto)
-        )
-            return dto;
-        return null;
     }
 }

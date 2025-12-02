@@ -1,7 +1,7 @@
+using Infrastructure.Database;
 using Microsoft.Data.Sqlite;
 using NATS.Client.JetStream;
 using NATS.Client.JetStream.Models;
-using Infrastructure.Database;
 
 namespace Modules.DeltaProjection;
 

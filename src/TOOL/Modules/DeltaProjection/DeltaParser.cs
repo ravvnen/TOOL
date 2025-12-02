@@ -60,8 +60,10 @@ public static class DeltaParser
                     ? bv.GetInt32()
                     : 0;
 
-            var occurredAt = JsonHelper.TryGetDateTimeOffset(root, "occurred_at") ?? DateTimeOffset.UtcNow;
-            var emittedAt = JsonHelper.TryGetDateTimeOffset(root, "emitted_at") ?? DateTimeOffset.UtcNow;
+            var occurredAt =
+                JsonHelper.TryGetDateTimeOffset(root, "occurred_at") ?? DateTimeOffset.UtcNow;
+            var emittedAt =
+                JsonHelper.TryGetDateTimeOffset(root, "emitted_at") ?? DateTimeOffset.UtcNow;
 
             var repo = JsonHelper.GetStringOrEmpty(source, "repo");
             var srcRef = JsonHelper.GetStringOrEmpty(source, "ref");

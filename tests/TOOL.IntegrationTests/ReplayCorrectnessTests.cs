@@ -1,9 +1,9 @@
 using System.Text;
 using Dapper;
 using Microsoft.Data.Sqlite;
+using Modules.Replay;
 using NATS.Client.Core;
 using NATS.Client.JetStream;
-using Modules.Replay;
 using Xunit;
 
 namespace IntegrationTests;

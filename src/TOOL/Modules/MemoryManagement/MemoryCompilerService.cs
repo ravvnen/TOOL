@@ -1,7 +1,7 @@
 using System.Text.RegularExpressions;
 using Dapper;
-using Microsoft.Data.Sqlite;
 using Infrastructure.Database;
+using Microsoft.Data.Sqlite;
 
 namespace Modules.MemoryManagement;
 

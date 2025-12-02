@@ -1,5 +1,3 @@
-using NATS.Client.Core;
-using NATS.Client.JetStream;
 using Infrastructure.Database;
 using Infrastructure.Database.Schema;
 using Infrastructure.Messaging;
@@ -8,6 +6,8 @@ using Modules.MemoryManagement;
 using Modules.Promotion;
 using Modules.Replay;
 using Modules.SeedProcessing;
+using NATS.Client.Core;
+using NATS.Client.JetStream;
 
 namespace Configuration;
 

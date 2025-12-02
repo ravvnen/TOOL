@@ -30,4 +30,15 @@ public class JsonHelper
             return dto;
         return null;
     }
+
+    public static string[] GetStringArray(JsonElement el, string name)
+    {
+        if (el.TryGetProperty(name, out var arr) && arr.ValueKind == JsonValueKind.Array)
+            return arr.EnumerateArray()
+                .Select(x => x.GetString())
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Cast<string>()
+                .ToArray();
+        return Array.Empty<string>();
+    }
 }

@@ -177,14 +177,14 @@ public sealed class PromoterService : BackgroundService
                 }
 
                 // -------- Extract required fields (strict, with logging) --------
-                if (!TryGetString(root, "ns", out var ns) || string.IsNullOrWhiteSpace(ns))
+                if (!JsonHelper.TryGetString(root, "ns", out var ns) || string.IsNullOrWhiteSpace(ns))
                 {
                     _log.LogWarning("Missing ns. Subject={Subject}", msg.Subject);
                     await msg.NakAsync();
                     continue;
                 }
                 if (
-                    !TryGetString(root, "item_id", out var itemId)
+                    !JsonHelper.TryGetString(root, "item_id", out var itemId)
                     || string.IsNullOrWhiteSpace(itemId)
                 )
                 {
@@ -192,16 +192,16 @@ public sealed class PromoterService : BackgroundService
                     await msg.NakAsync();
                     continue;
                 }
-                if (!TryGetString(root, "sha", out var sha) || string.IsNullOrWhiteSpace(sha))
+                if (!JsonHelper.TryGetString(root, "sha", out var sha) || string.IsNullOrWhiteSpace(sha))
                 {
                     _log.LogWarning("Missing sha. Subject={Subject}", msg.Subject);
                     await msg.NakAsync();
                     continue;
                 }
 
-                var titleRaw = GetStringOrEmpty(root, "title");
-                var contentRaw = GetStringOrEmpty(root, "content");
-                var labels = GetStringArray(root, "labels");
+                var titleRaw = JsonHelper.GetStringOrEmpty(root, "title");
+                var contentRaw = JsonHelper.GetStringOrEmpty(root, "content");
+                var labels = JsonHelper.GetStringArray(root, "labels");
 
                 if (
                     !root.TryGetProperty("source", out var source)
@@ -213,10 +213,10 @@ public sealed class PromoterService : BackgroundService
                     continue;
                 }
 
-                var repo = GetStringOrEmpty(source, "repo");
-                var srcRef = GetStringOrEmpty(source, "ref");
-                var path = GetStringOrEmpty(source, "path");
-                var blobSha = GetStringOrEmpty(source, "blob_sha");
+                var repo = JsonHelper.GetStringOrEmpty(source, "repo");
+                var srcRef = JsonHelper.GetStringOrEmpty(source, "ref");
+                var path = JsonHelper.GetStringOrEmpty(source, "path");
+                var blobSha = JsonHelper.GetStringOrEmpty(source, "blob_sha");
 
                 // -------- Gate policy (branch, ci, labels, retract/ upsert) --------
                 var decision = EvaluatePolicy(root);
@@ -287,7 +287,7 @@ public sealed class PromoterService : BackgroundService
                         deltasStream: null,
                         deltasSeq: null,
                         swStart,
-                        receivedAt: TryGetDateTimeOffset(root, "emitted_at")
+                        receivedAt: JsonHelper.TryGetDateTimeOffset(root, "emitted_at")
                             ?? DateTimeOffset.UtcNow
                     );
 
@@ -350,7 +350,7 @@ public sealed class PromoterService : BackgroundService
                             deltasStream: null,
                             deltasSeq: null,
                             swStart,
-                            receivedAt: TryGetDateTimeOffset(root, "emitted_at")
+                            receivedAt: JsonHelper.TryGetDateTimeOffset(root, "emitted_at")
                                 ?? DateTimeOffset.UtcNow
                         );
 
@@ -451,7 +451,7 @@ public sealed class PromoterService : BackgroundService
                 // -------- Emit DELTA (idempotent publish via Nats-Msg-Id) --------
                 var deltaType = isActiveAfter ? "im.upsert.v1" : "im.retract.v1";
                 var deltaSubject = $"delta.{ns}.im.{(isActiveAfter ? "upsert" : "retract")}.v1";
-                var occurredAt = TryGetDateTimeOffset(root, "emitted_at") ?? DateTimeOffset.UtcNow;
+                var occurredAt = JsonHelper.TryGetDateTimeOffset(root, "emitted_at") ?? DateTimeOffset.UtcNow;
 
                 byte[] deltaBody = isActiveAfter
                     ? JsonSerializer.SerializeToUtf8Bytes(
@@ -597,7 +597,7 @@ public sealed class PromoterService : BackgroundService
     static PolicyDecision EvaluatePolicy(JsonElement root)
     {
         // Action: explicit 'action' or trailers.TeamAI-Action
-        var actionText = TryGetString(root, "action", out var act) ? act : null;
+        var actionText = JsonHelper.TryGetString(root, "action", out var act) ? act : null;
         if (
             string.IsNullOrWhiteSpace(actionText)
             && root.TryGetProperty("trailers", out var trailers)
@@ -632,7 +632,7 @@ public sealed class PromoterService : BackgroundService
         }
 
         // CI status
-        var ci = TryGetString(root, "ci", out var ciVal) ? ciVal : "n/a";
+        var ci = JsonHelper.TryGetString(root, "ci", out var ciVal) ? ciVal : "n/a";
 
         // Experimental label?
         var experimental = HasLabel(root, "experimental");
@@ -682,44 +682,6 @@ public sealed class PromoterService : BackgroundService
                     return true;
         }
         return false;
-    }
-
-    static bool TryGetString(JsonElement el, string name, out string value)
-    {
-        value = "";
-        if (el.TryGetProperty(name, out var p) && p.ValueKind == JsonValueKind.String)
-        {
-            value = p.GetString() ?? "";
-            return true;
-        }
-        return false;
-    }
-
-    static string GetStringOrEmpty(JsonElement el, string name) =>
-        el.TryGetProperty(name, out var p) && p.ValueKind == JsonValueKind.String
-            ? (p.GetString() ?? "")
-            : "";
-
-    static string[] GetStringArray(JsonElement el, string name)
-    {
-        if (el.TryGetProperty(name, out var arr) && arr.ValueKind == JsonValueKind.Array)
-            return arr.EnumerateArray()
-                .Select(x => x.GetString())
-                .Where(x => !string.IsNullOrWhiteSpace(x))
-                .Cast<string>()
-                .ToArray();
-        return Array.Empty<string>();
-    }
-
-    static DateTimeOffset? TryGetDateTimeOffset(JsonElement el, string name)
-    {
-        if (
-            el.TryGetProperty(name, out var p)
-            && p.ValueKind == JsonValueKind.String
-            && DateTimeOffset.TryParse(p.GetString(), out var dto)
-        )
-            return dto;
-        return null;
     }
 
     static string Canonicalize(string s)
@@ -902,28 +864,28 @@ public sealed class PromoterService : BackgroundService
     )
     {
         // Extract common fields
-        if (!TryGetString(root, "ns", out var ns) || string.IsNullOrWhiteSpace(ns))
+        if (!JsonHelper.TryGetString(root, "ns", out var ns) || string.IsNullOrWhiteSpace(ns))
         {
             _log.LogWarning("[Admin] Missing ns. Subject={Subject}", msg.Subject);
             await msg.NakAsync();
             return;
         }
 
-        if (!TryGetString(root, "item_id", out var itemId) || string.IsNullOrWhiteSpace(itemId))
+        if (!JsonHelper.TryGetString(root, "item_id", out var itemId) || string.IsNullOrWhiteSpace(itemId))
         {
             _log.LogWarning("[Admin] Missing item_id. Subject={Subject}", msg.Subject);
             await msg.NakAsync();
             return;
         }
 
-        if (!TryGetString(root, "action", out var action) || string.IsNullOrWhiteSpace(action))
+        if (!JsonHelper.TryGetString(root, "action", out var action) || string.IsNullOrWhiteSpace(action))
         {
             _log.LogWarning("[Admin] Missing action. Subject={Subject}", msg.Subject);
             await msg.NakAsync();
             return;
         }
 
-        if (!TryGetString(root, "event_id", out var eventId) || string.IsNullOrWhiteSpace(eventId))
+        if (!JsonHelper.TryGetString(root, "event_id", out var eventId) || string.IsNullOrWhiteSpace(eventId))
         {
             _log.LogWarning("[Admin] Missing event_id. Subject={Subject}", msg.Subject);
             await msg.NakAsync();
@@ -941,8 +903,8 @@ public sealed class PromoterService : BackgroundService
             return;
         }
 
-        var userId = GetStringOrEmpty(adminMetaEl, "user_id");
-        var reason = GetStringOrEmpty(adminMetaEl, "reason");
+        var userId = JsonHelper.GetStringOrEmpty(adminMetaEl, "user_id");
+        var reason = JsonHelper.GetStringOrEmpty(adminMetaEl, "reason");
         var bypassReview =
             adminMetaEl.TryGetProperty("bypass_review", out var br) && br.GetBoolean();
         var expectedVersion =
@@ -1017,7 +979,7 @@ public sealed class PromoterService : BackgroundService
                 deltasStream: null,
                 deltasSeq: null,
                 swStart,
-                receivedAt: TryGetDateTimeOffset(root, "occurred_at") ?? DateTimeOffset.UtcNow
+                receivedAt: JsonHelper.TryGetDateTimeOffset(root, "occurred_at") ?? DateTimeOffset.UtcNow
             );
 
             await msg.AckAsync(); // Ack (conflict handled, don't retry)
@@ -1025,9 +987,9 @@ public sealed class PromoterService : BackgroundService
         }
 
         // Extract content fields
-        var title = GetStringOrEmpty(root, "title");
-        var content = GetStringOrEmpty(root, "content");
-        var labels = GetStringArray(root, "labels");
+        var title = JsonHelper.GetStringOrEmpty(root, "title");
+        var content = JsonHelper.GetStringOrEmpty(root, "content");
+        var labels = JsonHelper.GetStringArray(root, "labels");
         var labelsJson = JsonSerializer.Serialize(labels);
 
         // Extract source
@@ -1041,10 +1003,10 @@ public sealed class PromoterService : BackgroundService
             return;
         }
 
-        var repo = GetStringOrEmpty(source, "repo");
-        var srcRef = GetStringOrEmpty(source, "ref");
-        var path = GetStringOrEmpty(source, "path");
-        var blobSha = GetStringOrEmpty(source, "blob_sha");
+        var repo = JsonHelper.GetStringOrEmpty(source, "repo");
+        var srcRef = JsonHelper.GetStringOrEmpty(source, "ref");
+        var path = JsonHelper.GetStringOrEmpty(source, "path");
+        var blobSha = JsonHelper.GetStringOrEmpty(source, "blob_sha");
 
         // Canonicalize content and compute hash
         var canonTitle = Canonicalize(title);
@@ -1088,7 +1050,7 @@ public sealed class PromoterService : BackgroundService
                     deltasStream: null,
                     deltasSeq: null,
                     swStart,
-                    receivedAt: TryGetDateTimeOffset(root, "occurred_at") ?? DateTimeOffset.UtcNow
+                    receivedAt: JsonHelper.TryGetDateTimeOffset(root, "occurred_at") ?? DateTimeOffset.UtcNow
                 );
 
                 await msg.AckAsync();
@@ -1106,7 +1068,7 @@ public sealed class PromoterService : BackgroundService
             deltaType = "im.upsert.v1";
         }
 
-        var occurredAt = TryGetDateTimeOffset(root, "occurred_at") ?? DateTimeOffset.UtcNow;
+        var occurredAt = JsonHelper.TryGetDateTimeOffset(root, "occurred_at") ?? DateTimeOffset.UtcNow;
 
         // Update promoter DB
         using var tx = db.BeginTransaction();
