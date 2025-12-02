@@ -1,12 +1,13 @@
 using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
+using Buildingblocks.Utils;
 using Dapper;
 using Infrastructure.Database;
 using Microsoft.Data.Sqlite;
 using NATS.Client.JetStream;
 using NATS.Client.JetStream.Models;
-using Buildingblocks.Utils;
+
 namespace Modules.Replay;
 
 /// <summary>
@@ -147,8 +148,10 @@ public sealed class ReplayEngine
                         : "[]";
                 var newVersion = root.GetProperty("new_version").GetInt32();
 
-                var occurredAt = JsonHelper.TryGetDateTimeOffset(root, "occurred_at") ?? DateTimeOffset.UtcNow;
-                var emittedAt = JsonHelper.TryGetDateTimeOffset(root, "emitted_at") ?? DateTimeOffset.UtcNow;
+                var occurredAt =
+                    JsonHelper.TryGetDateTimeOffset(root, "occurred_at") ?? DateTimeOffset.UtcNow;
+                var emittedAt =
+                    JsonHelper.TryGetDateTimeOffset(root, "emitted_at") ?? DateTimeOffset.UtcNow;
 
                 var source = root.GetProperty("source");
                 var repo = JsonHelper.GetStringOrEmpty(source, "repo");

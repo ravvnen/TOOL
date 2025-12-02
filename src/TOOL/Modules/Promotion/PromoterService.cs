@@ -2,13 +2,13 @@ using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using Buildingblocks.Utils;
 using Dapper;
+using Infrastructure.Database;
 using Microsoft.Data.Sqlite;
 using NATS.Client.Core;
 using NATS.Client.JetStream;
 using NATS.Client.JetStream.Models;
-using Infrastructure.Database;
-using Buildingblocks.Utils;
 
 namespace Modules.Promotion;
 
@@ -177,7 +177,10 @@ public sealed class PromoterService : BackgroundService
                 }
 
                 // -------- Extract required fields (strict, with logging) --------
-                if (!JsonHelper.TryGetString(root, "ns", out var ns) || string.IsNullOrWhiteSpace(ns))
+                if (
+                    !JsonHelper.TryGetString(root, "ns", out var ns)
+                    || string.IsNullOrWhiteSpace(ns)
+                )
                 {
                     _log.LogWarning("Missing ns. Subject={Subject}", msg.Subject);
                     await msg.NakAsync();
@@ -192,7 +195,10 @@ public sealed class PromoterService : BackgroundService
                     await msg.NakAsync();
                     continue;
                 }
-                if (!JsonHelper.TryGetString(root, "sha", out var sha) || string.IsNullOrWhiteSpace(sha))
+                if (
+                    !JsonHelper.TryGetString(root, "sha", out var sha)
+                    || string.IsNullOrWhiteSpace(sha)
+                )
                 {
                     _log.LogWarning("Missing sha. Subject={Subject}", msg.Subject);
                     await msg.NakAsync();
@@ -451,7 +457,8 @@ public sealed class PromoterService : BackgroundService
                 // -------- Emit DELTA (idempotent publish via Nats-Msg-Id) --------
                 var deltaType = isActiveAfter ? "im.upsert.v1" : "im.retract.v1";
                 var deltaSubject = $"delta.{ns}.im.{(isActiveAfter ? "upsert" : "retract")}.v1";
-                var occurredAt = JsonHelper.TryGetDateTimeOffset(root, "emitted_at") ?? DateTimeOffset.UtcNow;
+                var occurredAt =
+                    JsonHelper.TryGetDateTimeOffset(root, "emitted_at") ?? DateTimeOffset.UtcNow;
 
                 byte[] deltaBody = isActiveAfter
                     ? JsonSerializer.SerializeToUtf8Bytes(
@@ -871,21 +878,30 @@ public sealed class PromoterService : BackgroundService
             return;
         }
 
-        if (!JsonHelper.TryGetString(root, "item_id", out var itemId) || string.IsNullOrWhiteSpace(itemId))
+        if (
+            !JsonHelper.TryGetString(root, "item_id", out var itemId)
+            || string.IsNullOrWhiteSpace(itemId)
+        )
         {
             _log.LogWarning("[Admin] Missing item_id. Subject={Subject}", msg.Subject);
             await msg.NakAsync();
             return;
         }
 
-        if (!JsonHelper.TryGetString(root, "action", out var action) || string.IsNullOrWhiteSpace(action))
+        if (
+            !JsonHelper.TryGetString(root, "action", out var action)
+            || string.IsNullOrWhiteSpace(action)
+        )
         {
             _log.LogWarning("[Admin] Missing action. Subject={Subject}", msg.Subject);
             await msg.NakAsync();
             return;
         }
 
-        if (!JsonHelper.TryGetString(root, "event_id", out var eventId) || string.IsNullOrWhiteSpace(eventId))
+        if (
+            !JsonHelper.TryGetString(root, "event_id", out var eventId)
+            || string.IsNullOrWhiteSpace(eventId)
+        )
         {
             _log.LogWarning("[Admin] Missing event_id. Subject={Subject}", msg.Subject);
             await msg.NakAsync();
@@ -979,7 +995,8 @@ public sealed class PromoterService : BackgroundService
                 deltasStream: null,
                 deltasSeq: null,
                 swStart,
-                receivedAt: JsonHelper.TryGetDateTimeOffset(root, "occurred_at") ?? DateTimeOffset.UtcNow
+                receivedAt: JsonHelper.TryGetDateTimeOffset(root, "occurred_at")
+                    ?? DateTimeOffset.UtcNow
             );
 
             await msg.AckAsync(); // Ack (conflict handled, don't retry)
@@ -1050,7 +1067,8 @@ public sealed class PromoterService : BackgroundService
                     deltasStream: null,
                     deltasSeq: null,
                     swStart,
-                    receivedAt: JsonHelper.TryGetDateTimeOffset(root, "occurred_at") ?? DateTimeOffset.UtcNow
+                    receivedAt: JsonHelper.TryGetDateTimeOffset(root, "occurred_at")
+                        ?? DateTimeOffset.UtcNow
                 );
 
                 await msg.AckAsync();
@@ -1068,7 +1086,8 @@ public sealed class PromoterService : BackgroundService
             deltaType = "im.upsert.v1";
         }
 
-        var occurredAt = JsonHelper.TryGetDateTimeOffset(root, "occurred_at") ?? DateTimeOffset.UtcNow;
+        var occurredAt =
+            JsonHelper.TryGetDateTimeOffset(root, "occurred_at") ?? DateTimeOffset.UtcNow;
 
         // Update promoter DB
         using var tx = db.BeginTransaction();
