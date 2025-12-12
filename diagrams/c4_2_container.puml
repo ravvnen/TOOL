@@ -8,38 +8,44 @@ Person(user, "User", "Developer/researcher interacting via Agent.UI")
 System_Boundary(tool, "TOOL System") {
     Container(ui, "Agent.UI", "React 19 / Vite", "Frontend: chat, search, admin CRUD, replay")
     Container(api, "TOOL API", ".NET 9 / ASP.NET Core", "REST API: Seed, Memory, Admin, Agent, Replay")
-    Container(promoter, "Promoter Service", ".NET Background Service", "Validates EVENTS, applies policy, emits DELTAS + AUDITS")
-    Container(projector, "Delta Projector", ".NET Background Service", "Consumes DELTAS, updates SQLite")
+    Container(promoter, "Promoter Service", ".NET Background Service", "Validates events, applies policy, emits deltas")
+    Container(projector, "Delta Projector", ".NET Background Service", "Consumes deltas, updates SQLite")
     ContainerDb(sqlite, "SQLite + FTS5", "Projection DB", "im_items_current, im_items_history, im_fts")
 }
 
-System_Ext(nats, "NATS JetStream", "3 durable streams: EVENTS, DELTAS, AUDITS")
+System_Boundary(nats, "NATS JetStream") {
+    ContainerQueue(events, "EVENTS", "JetStream", "All proposed rule changes (evt.>)")
+    ContainerQueue(deltas, "DELTAS", "JetStream", "Approved changes only (delta.>)")
+    ContainerQueue(audits, "AUDITS", "JetStream", "All promoter decisions (audit.>)")
+}
+
 System_Ext(github, "GitHub", "Rule source repository")
 System_Ext(ollama, "Ollama", "Local LLM (llama3)")
 
+' User flow
 Rel(user, ui, "Browser", "HTTP :3000")
 Rel(ui, api, "REST API", "HTTP :5293")
+
+' LLM flow
 Rel(api, ollama, "Chat with compiled rules", "HTTP :11434")
 
+' GitHub webhook
 Rel(github, api, "Webhook", "POST /api/v1/seed")
 
-Rel(api, nats, "Publish", "EVENTS (evt.>)")
-Rel(promoter, nats, "Subscribe EVENTS\nPublish DELTAS + AUDITS", "NATS")
-Rel(projector, nats, "Subscribe", "DELTAS (delta.>)")
+' Event sourcing flow (the key flow!)
+Rel(api, events, "Publish", "evt.seed.* / evt.admin.*")
+Rel(events, promoter, "Subscribe", "evt.>")
+Rel(promoter, deltas, "Publish", "delta.{ns}.*")
+Rel(promoter, audits, "Publish", "audit.{ns}.*")
+Rel(deltas, projector, "Subscribe", "delta.>")
 Rel(projector, sqlite, "UPSERT", "SQL")
-Rel(api, sqlite, "FTS5 query", "SQL")
 
-note right of nats
-  **JetStream Streams:**
-  EVENTS - all proposed changes
-  DELTAS - approved changes only
-  AUDITS - all promoter decisions
-end note
+' Query flow
+Rel(api, sqlite, "FTS5 query", "SQL")
 
 note bottom of promoter
   **Policy Decisions:**
   skip | defer | upsert | retract
-  All logged to AUDITS stream
 end note
 
 @enduml
