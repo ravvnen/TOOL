@@ -13,16 +13,20 @@ rectangle "**H2: Retrieval Quality**\n\nDoes FTS5 retrieve the\nright rules for 
 
 rectangle "**H3: Replayability**\n\nCan we reconstruct state\nfrom event history alone?\n\n//State Reconstruction Accuracy//" as H3 #LightBlue
 
-rectangle "**H4: Freshness**\n\nHow fast do rule updates\nreach the agents?\n\n//End-to-end latency//" as H4 #LightBlue
+rectangle "**H4: Freshness**\n\nHow fast do rule updates\nreach the UI?\n\n//End-to-end latency//" as H4 #LightBlue
 
-rectangle "**H5: Consistency**\n\nDo multiple agents give\nthe same answer?\n\n//Citation agreement rate//" as H5 #LightBlue
+rectangle "**H5: Consistency**\n\nDo multiple instances give\nthe same compiled memory?\n\n//Hash agreement rate//" as H5 #LightBlue
 
-' System components (right side)
-rectangle "Memory Compiler\n+ LLM Integration" as C1 #LightGreen
-rectangle "FTS5 Search\n+ Ranking" as C2 #LightGreen
-rectangle "DELTAS Stream\n+ Replay Engine" as C3 #LightGreen
-rectangle "SSE Notifications\n+ Projector" as C4 #LightGreen
-rectangle "Shared Projection\n+ Determinism" as C5 #LightGreen
+' System components (right side) with implementation status
+rectangle "Memory Compiler\n+ Agent.UI + Ollama\n\n✅ Implemented" as C1 #LightGreen
+
+rectangle "FTS5 Search\n+ MemoryController\n\n✅ Implemented" as C2 #LightGreen
+
+rectangle "DELTAS Stream\n+ ReplayEngine\n\n✅ Implemented" as C3 #LightGreen
+
+rectangle "Delta Projector\n+ (SSE planned)\n\n🔄 Partial" as C4 #LightYellow
+
+rectangle "Shared DELTAS\n+ Multi-instance\n\n🔄 Planned" as C5 #LightYellow
 
 ' Mappings
 H1 --> C1 : tests
@@ -32,13 +36,19 @@ H4 --> C4 : tests
 H5 --> C5 : tests
 
 note bottom of H1
-  Each hypothesis tests a
-  specific system property
+  **Experiment Status:**
+  H1, H2: Need test prompts + human annotators
+  H3: Can run now (ReplayEngine exists)
+  H4: Need SSE implementation first
+  H5: Need Docker multi-instance setup
 end note
 
 note bottom of C5
-  System is designed to
-  make hypotheses testable
+  **Implementation Priority:**
+  1. H3 - already testable
+  2. H4 - add SSE to projector
+  3. H5 - Docker Compose setup
+  4. H1/H2 - create evaluation dataset
 end note
 
 @enduml

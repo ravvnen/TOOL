@@ -1,74 +1,101 @@
 @startuml Sequence_Replay
-title Sequence Diagram: State Replay (Determinism Verification)
+title Sequence Diagram: Replay for Determinism Verification (H3)
 
 skinparam backgroundColor #FEFEFE
 skinparam sequenceMessageAlign center
 
-actor "Developer" as DEV
-participant "TOOL API" as API
+actor "User" as USER
+participant "Agent.UI" as UI
+participant "TOOL API\n(ReplayController)" as API
 participant "Replay\nEngine" as REPLAY
 queue "DELTAS\n(JetStream)" as DELTAS
-database "SQLite\n(Projection)" as DB
+database "Temp SQLite\n(Fresh DB)" as TEMP_DB
+database "Main SQLite\n(Projection)" as MAIN_DB
 
-== Trigger Full Replay ==
+== User Triggers Replay ==
 
-DEV -> API: POST /replay/full
+USER -> UI: Click "Trigger Replay" button
+activate UI
+
+UI -> API: POST /api/v1/admin/replay\n{ns: "ravvnen.consulting"}
 activate API
 
-API -> REPLAY: StartFullReplay()
+API -> REPLAY: ReplayAsync(ns, tempDbPath)
 activate REPLAY
 
-== Step 1: Clear Current State ==
+== Step 1: Create Fresh Database ==
 
-REPLAY -> DB: DROP TABLE im_items_current
-REPLAY -> DB: DROP TABLE im_items_history
-REPLAY -> DB: CREATE TABLE im_items_current...
-REPLAY -> DB: CREATE TABLE im_items_history...
+REPLAY -> TEMP_DB: Create temp file\n/tmp/replay_{guid}.db
+REPLAY -> TEMP_DB: CREATE TABLE im_items_current
+REPLAY -> TEMP_DB: CREATE TABLE im_items_history
+REPLAY -> TEMP_DB: CREATE TABLE source_bindings
 
-note over DB: Projection DB is now empty\n(clean slate)
+note over TEMP_DB: Fresh database with\nempty tables (clean slate)
 
-== Step 2: Replay All DELTAs ==
+== Step 2: Create Ephemeral Consumer ==
 
-REPLAY -> DELTAS: Subscribe from seq: 1\n(durable consumer)
-activate DELTAS
+REPLAY -> DELTAS: CreateConsumer\n{name: "replay-{guid}",\nDeliverPolicy: All,\nFilterSubject: "delta.{ns}.>"}
+
+note right of DELTAS
+  Ephemeral consumer:
+  - Reads from seq 1
+  - No durable state
+  - Deleted after replay
+end note
+
+== Step 3: Replay All DELTAs ==
 
 loop For each DELTA (seq 1 → N)
-    DELTAS -> REPLAY: DELTA {seq: i, type, ruleId, content}
+    DELTAS -> REPLAY: Fetch DELTA\n{type, item_id, version, content}
 
-    REPLAY -> REPLAY: Validate DELTA\nCheck idempotency
+    alt type == "im.upsert.v1"
+        REPLAY -> TEMP_DB: UPSERT im_items_current
+        REPLAY -> TEMP_DB: INSERT im_items_history
+        REPLAY -> TEMP_DB: INSERT source_bindings
+    else type == "im.retract.v1"
+        REPLAY -> TEMP_DB: UPDATE is_active=0
+        REPLAY -> TEMP_DB: INSERT im_items_history
+    end
 
-    REPLAY -> DB: UPSERT im_items_current\n(ruleId, version, content)
-    REPLAY -> DB: INSERT im_items_history\n(ruleId, version, seq, timestamp)
-
-    REPLAY -> REPLAY: Increment applied count
+    REPLAY -> DELTAS: ACK
 end
 
-DELTAS --> REPLAY: End of stream (seq: N)
-deactivate DELTAS
+== Step 4: Compute State Hash ==
 
-== Step 3: Verify State ==
+REPLAY -> TEMP_DB: SELECT title, content\nFROM im_items_current\nWHERE is_active=1\nORDER BY item_id
+TEMP_DB --> REPLAY: rows[]
 
-REPLAY -> DB: SELECT COUNT(*), checksum\nFROM im_items_current
-DB --> REPLAY: {count: 150, checksum: "abc123"}
+REPLAY -> REPLAY: Compute SHA256\nof concatenated content
 
-REPLAY -> REPLAY: Compare with expected state\n(if verification mode)
+== Step 5: Cleanup ==
 
-REPLAY --> API: ReplayResult\n{deltasReplayed: N,\nrulesRestored: 150,\nchecksum: "abc123",\nduration: "2.3s"}
+REPLAY -> DELTAS: DeleteConsumer("replay-{guid}")
+REPLAY -> TEMP_DB: Delete temp file
+
+REPLAY --> API: ReplayResult {\n  eventsProcessed: N,\n  activeRulesCount: 150,\n  imHash: "ABC123...",\n  durationMs: 2300\n}
 deactivate REPLAY
 
-API --> DEV: 200 OK\n{success: true, stats: {...}}
+API --> UI: 200 OK {ReplayResult}
 deactivate API
 
-note over DEV: State reconstructed\ndeterministically from\nevent log alone
+== Compare with Main Projection ==
 
-== Verification (H3 Hypothesis) ==
+UI -> API: GET /api/v1/state?ns=...
+API -> MAIN_DB: Compute hash
+MAIN_DB --> API: {activeItems, imHash}
+API --> UI: StateResponse
 
-note over DEV, DB
-  **State Reconstruction Accuracy (SRA)**
+UI -> UI: Compare hashes:\nreplay.imHash == state.imHash?
 
-  If SRA = 100%: Replay produces identical state
-  This proves the system is deterministic
-  and fully auditable from event history
+UI --> USER: Display result:\n"✓ SRA = 100%\nState matches!"
+deactivate UI
+
+note over USER, MAIN_DB
+  **H3 Verification:**
+  If replay hash == main hash,
+  system is deterministic.
+
+  State Reconstruction Accuracy = 100%
 end note
 
 @enduml

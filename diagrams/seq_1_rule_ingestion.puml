@@ -1,63 +1,72 @@
 @startuml Sequence_RuleIngestion
-title Sequence Diagram: Rule Ingestion Flow
+title Sequence Diagram: Rule Ingestion via GitHub Webhook
 
 skinparam backgroundColor #FEFEFE
 skinparam sequenceMessageAlign center
 
 actor "GitHub" as GH
-participant "TOOL API" as API
+participant "TOOL API\n(SeedController)" as API
+participant "SeedHandler" as HANDLER
 queue "EVENTS\n(JetStream)" as EVENTS
 participant "Promoter\nService" as PROMOTER
 queue "DELTAS\n(JetStream)" as DELTAS
-participant "Projection\nService" as PROJECTOR
-database "SQLite\n(Projection)" as DB
+participant "Delta\nProjector" as PROJECTOR
+database "SQLite" as DB
 
-== Rule Change in Repository ==
+== GitHub Push Event ==
 
-GH -> API: POST /webhook\n(push event)
+GH -> API: POST /api/v1/seed\nHeaders: X-GitHub-Delivery, X-GitHub-Event\nBody: {repository, commits, ...}
 activate API
 
-API -> API: Parse commit\nExtract rule changes
+API -> HANDLER: HandleAsync(dto, raw, deliveryId)
+activate HANDLER
 
-API -> EVENTS: Publish EVENT\n{type: "rule.proposed",\nruleId, content, gitSha}
+HANDLER -> HANDLER: Parse payload\nExtract rule changes from commits
+
+HANDLER -> EVENTS: Publish EVENT\n{type: "Seed.RuleProposed",\nns, item_id, title, content, source}
 activate EVENTS
-EVENTS --> API: ACK (seq: 42)
+EVENTS --> HANDLER: ACK (stream: EVENTS, seq: 42)
 deactivate EVENTS
 
-API --> GH: 200 OK
+HANDLER --> API: {subject: "evt.seed.ravvnen.consulting..."}
+deactivate HANDLER
+
+API --> GH: 200 OK {subject: "..."}
 deactivate API
 
-== Event Processing (Async) ==
+== Async: Promoter Processing ==
 
 EVENTS -> PROMOTER: Deliver EVENT (seq: 42)
 activate PROMOTER
 
-PROMOTER -> PROMOTER: Validate content\nCheck schema\nApply gating rules
+PROMOTER -> PROMOTER: Validate event type\nCheck schema\nApply gating logic
 
-alt Approved
-    PROMOTER -> DELTAS: Publish DELTA\n{type: "rule.activated",\nruleId, version, content}
+alt Valid Event
+    PROMOTER -> DELTAS: Publish DELTA\n{type: "im.upsert.v1",\nns, item_id, new_version, content}
     activate DELTAS
-    DELTAS --> PROMOTER: ACK (seq: 108)
+    DELTAS --> PROMOTER: ACK (stream: DELTAS, seq: 108)
     deactivate DELTAS
-else Rejected
-    PROMOTER -> PROMOTER: Log rejection reason
-    note right: No DELTA emitted\nEvent is "filtered out"
+else Invalid/Filtered
+    PROMOTER -> PROMOTER: Log rejection
+    note right: No DELTA emitted
 end
 
-PROMOTER -> EVENTS: ACK EVENT (seq: 42)
+PROMOTER -> EVENTS: ACK EVENT
 deactivate PROMOTER
 
-== Projection Update (Async) ==
+== Async: Projection Update ==
 
 DELTAS -> PROJECTOR: Deliver DELTA (seq: 108)
 activate PROJECTOR
 
-PROJECTOR -> DB: UPSERT im_items_current\n(ruleId, version, content)
-PROJECTOR -> DB: INSERT im_items_history\n(ruleId, version, timestamp)
+PROJECTOR -> DB: UPSERT im_items_current\n(ns, item_id, version, content)
+PROJECTOR -> DB: INSERT im_items_history
+PROJECTOR -> DB: INSERT source_bindings\n(repo, ref, path, blob_sha)
+PROJECTOR -> DB: UPDATE im_fts (FTS5)
 
-PROJECTOR -> DELTAS: ACK DELTA (seq: 108)
+PROJECTOR -> DELTAS: ACK DELTA
 deactivate PROJECTOR
 
-note over DB: Rule is now queryable\nvia FTS5 search
+note over DB: Rule is now searchable\nvia FTS5 and queryable\nvia Memory Compiler
 
 @enduml

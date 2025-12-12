@@ -5,73 +5,77 @@ left to right direction
 skinparam backgroundColor #FEFEFE
 skinparam packageStyle rectangle
 
-actor "End User" as USER
-actor "AI Agent" as AGENT
-actor "Administrator" as ADMIN
-actor "Developer" as DEV
+actor "User\n(via Agent.UI)" as USER
 actor "GitHub" as GH <<system>>
 
 rectangle "TOOL System" {
 
-    package "Agent Operations" {
-        usecase "Query Rules" as UC_QUERY
-        usecase "Get Memory for Prompt" as UC_MEMORY
-        usecase "Chat with Rules" as UC_CHAT
-        usecase "Explain Answer" as UC_EXPLAIN
+    package "Chat & Memory" <<Rectangle>> {
+        usecase "Chat with LLM\n(rules injected)" as UC_CHAT #LightGreen
+        usecase "Compile Memory\nfor prompt" as UC_COMPILE #LightGreen
+        usecase "Search Rules\n(FTS5)" as UC_SEARCH #LightGreen
+        usecase "View Provenance\n(/why)" as UC_WHY #LightGreen
     }
 
-    package "Rule Management" {
-        usecase "Seed Rules from Git" as UC_SEED
-        usecase "Create Rule" as UC_CREATE
-        usecase "Update Rule" as UC_UPDATE
-        usecase "Delete Rule" as UC_DELETE
-        usecase "Approve Rule Change" as UC_APPROVE
+    package "Rule Management" <<Rectangle>> {
+        usecase "Create Rule" as UC_CREATE #LightGreen
+        usecase "Update Rule" as UC_UPDATE #LightGreen
+        usecase "Delete Rule" as UC_DELETE #LightGreen
+        usecase "Seed from Git" as UC_SEED #LightGreen
     }
 
-    package "Audit & Compliance" {
-        usecase "View Rule History" as UC_HISTORY
-        usecase "Trace Provenance" as UC_PROVENANCE
-        usecase "Replay from Events" as UC_REPLAY
-        usecase "Verify Determinism" as UC_VERIFY
+    package "State & Debug" <<Rectangle>> {
+        usecase "View System State\n(hash, count)" as UC_STATE #LightGreen
+        usecase "Browse All Items" as UC_ITEMS #LightGreen
+        usecase "View Item Detail\n(history, sources)" as UC_DETAIL #LightGreen
     }
 
-    package "Monitoring" {
-        usecase "View System State" as UC_STATE
-        usecase "Subscribe to Updates" as UC_SUBSCRIBE
-        usecase "Check Health" as UC_HEALTH
+    package "Audit & Replay" <<Rectangle>> {
+        usecase "Trigger Replay\n(H3 verification)" as UC_REPLAY #LightGreen
+        usecase "Compare Hashes\n(SRA check)" as UC_VERIFY #LightGreen
+    }
+
+    package "Planned Features" <<Rectangle>> {
+        usecase "SSE Notifications\n(H4 freshness)" as UC_SSE #LightYellow
+        usecase "Multi-Instance\n(H5 consistency)" as UC_MULTI #LightYellow
+        usecase "RAG/Vector Search\n(H2 comparison)" as UC_RAG #LightYellow
     }
 }
 
 ' User interactions
-USER --> UC_CHAT : asks question
-USER --> UC_EXPLAIN : "why this answer?"
+USER --> UC_CHAT
+USER --> UC_COMPILE
+USER --> UC_SEARCH
+USER --> UC_WHY
+USER --> UC_CREATE
+USER --> UC_UPDATE
+USER --> UC_DELETE
+USER --> UC_STATE
+USER --> UC_ITEMS
+USER --> UC_DETAIL
+USER --> UC_REPLAY
+USER --> UC_VERIFY
 
-' Agent interactions
-AGENT --> UC_QUERY
-AGENT --> UC_MEMORY
-AGENT --> UC_SUBSCRIBE
-
-' Admin interactions
-ADMIN --> UC_CREATE
-ADMIN --> UC_UPDATE
-ADMIN --> UC_DELETE
-ADMIN --> UC_APPROVE
-ADMIN --> UC_HISTORY
-
-' Developer interactions
-DEV --> UC_SEED
-DEV --> UC_REPLAY
-DEV --> UC_VERIFY
-DEV --> UC_STATE
-DEV --> UC_HEALTH
-
-' System interactions
-GH --> UC_SEED : webhook
+' GitHub webhook
+GH --> UC_SEED : POST /api/v1/seed
 
 ' Relationships
-UC_CHAT ..> UC_MEMORY : <<include>>
-UC_MEMORY ..> UC_QUERY : <<include>>
-UC_EXPLAIN ..> UC_PROVENANCE : <<include>>
+UC_CHAT ..> UC_COMPILE : <<include>>
 UC_VERIFY ..> UC_REPLAY : <<include>>
+UC_VERIFY ..> UC_STATE : <<include>>
+
+legend right
+  |= Color |= Status |
+  | <#LightGreen> | Implemented |
+  | <#LightYellow> | Planned |
+endlegend
+
+note as N1
+  **Single User Persona**
+  The User interacts with TOOL
+  through Agent.UI (React frontend)
+  for all operations: chat, admin,
+  debug, and replay verification.
+end note
 
 @enduml

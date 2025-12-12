@@ -1,68 +1,81 @@
 @startuml Sequence_RealtimeUpdate
-title Sequence Diagram: Real-Time Rule Update (Freshness)
+title Sequence Diagram: Rule Update Flow (Current vs Planned SSE)
 
 skinparam backgroundColor #FEFEFE
 skinparam sequenceMessageAlign center
 
-actor "Admin" as ADMIN
-participant "Admin UI" as UI
+note as N1
+  **Current State:** User must manually refresh to see updates
+  **Planned (H4):** SSE push notifications for real-time freshness
+end note
+
+actor "User" as USER
+participant "Agent.UI" as UI
 participant "TOOL API" as API
 queue "EVENTS" as EVENTS
 participant "Promoter" as PROMOTER
 queue "DELTAS" as DELTAS
-participant "Projector" as PROJECTOR
+participant "Delta\nProjector" as PROJECTOR
 database "SQLite" as DB
-participant "SSE Hub" as SSE
-participant "Agent UI" as AGENT_UI
 
-== Admin Updates Rule ==
+== User Updates Rule via Admin CRUD ==
 
-ADMIN -> UI: Edit rule content\nClick "Save"
+USER -> UI: Edit rule in Admin tab\nClick "Save"
 activate UI
 
-UI -> API: PUT /admin/rules/{id}\n{content: "new content"}
+UI -> API: PUT /api/v1/admin/rules/{id}\n{title, content, reason}
 activate API
 
-API -> EVENTS: Publish EVENT\n{type: "rule.updated"}
-API --> UI: 202 Accepted
+API -> EVENTS: Publish EVENT\n{type: "Admin.RuleEditRequested"}
+EVENTS --> API: ACK
+
+API --> UI: 202 Accepted\n{eventId, subject}
 deactivate API
+
+UI --> USER: "Rule update submitted"
 deactivate UI
 
-== Async Processing ==
+== Async Processing (Background) ==
 
 EVENTS -> PROMOTER: EVENT
 activate PROMOTER
-PROMOTER -> DELTAS: DELTA\n{type: "rule.activated", v2}
+PROMOTER -> DELTAS: DELTA {type: "im.upsert.v1", new_version}
 deactivate PROMOTER
 
 DELTAS -> PROJECTOR: DELTA
 activate PROJECTOR
-PROJECTOR -> DB: UPDATE im_items_current
-PROJECTOR -> SSE: NotifyRuleChanged(ruleId)
+PROJECTOR -> DB: UPSERT im_items_current\n(version++, content)
+PROJECTOR -> DB: UPDATE im_fts
 deactivate PROJECTOR
 
-== Real-Time Push to Clients ==
+note over DB: Rule is updated in DB\nbut UI doesn't know yet
 
-SSE -> AGENT_UI: SSE: {"event": "rule.updated",\n"ruleId": "...", "version": 2}
-activate AGENT_UI
+== Current: Manual Refresh Required ==
 
-AGENT_UI -> AGENT_UI: Update local cache\nRefresh display
+USER -> UI: Click "Refresh" or\nswitch tabs
+activate UI
 
-note over AGENT_UI: Agent sees new rule\nimmediately
+UI -> API: GET /api/v1/state
+API -> DB: Query state
+DB --> API: {activeItems, imHash}
+API --> UI: StateResponse
 
-deactivate AGENT_UI
+UI --> USER: Shows updated rule
+deactivate UI
 
-== Freshness Measurement ==
+== PLANNED: SSE Push (H4 Freshness) ==
 
-note over ADMIN, AGENT_UI
-  **Freshness Latency (H4)**
+note over PROJECTOR, UI #LightYellow
+  **Future Implementation:**
 
-  t1 = Admin clicks Save
-  t2 = Agent UI displays update
+  1. Projector emits SSE event after DB update
+  2. Agent.UI subscribes to /api/v1/sse/rules
+  3. UI receives push: {event: "rule.updated", id, version}
+  4. UI auto-refreshes affected views
 
-  Freshness = t2 - t1
-
-  Target: < 500ms for real-time UX
+  **Freshness Metric:**
+  Latency = t(UI displays) - t(Admin clicks Save)
+  Target: < 500ms
 end note
 
 @enduml
