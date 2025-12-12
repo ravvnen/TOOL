@@ -1,0 +1,47 @@
+@startuml C4_Component
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+title Component Diagram - TOOL API Internal Structure
+
+Container_Boundary(api, "TOOL API") {
+
+    Component(agentController, "Agent Controller", "ASP.NET Controller", "Handles /agent/* endpoints: memory queries, chat, state")
+
+    Component(adminController, "Admin Controller", "ASP.NET Controller", "Handles /admin/* endpoints: seed, CRUD, approval")
+
+    Component(replayController, "Replay Controller", "ASP.NET Controller", "Handles /replay/* endpoints: full replay, point-in-time")
+
+    Component(memoryCompiler, "Memory Compiler", "Service", "Retrieves rules via FTS5, ranks by relevance, formats JSON")
+
+    Component(promoterService, "Promoter Service", "Background Service", "Gating logic: validates events, emits DELTAS")
+
+    Component(deltaConsumer, "Delta Consumer", "Background Service", "Applies DELTAS to projection DB, maintains history")
+
+    Component(replayEngine, "Replay Engine", "Service", "Replays DELTAS from sequence N, reconstructs state")
+
+    Component(natsClient, "NATS Client", "Infrastructure", "Publishes/subscribes to JetStream streams")
+
+    Component(dbContext, "Projection DbContext", "EF Core / Dapper", "SQLite access with FTS5 virtual table")
+}
+
+ContainerDb(nats, "NATS JetStream", "Streams: EVENTS, DELTAS")
+ContainerDb(sqlite, "SQLite DB", "Tables: im_items_current, im_items_history")
+
+Rel(agentController, memoryCompiler, "Uses")
+Rel(agentController, dbContext, "Reads state")
+Rel(adminController, natsClient, "Publishes EVENTS")
+Rel(adminController, dbContext, "Reads/writes")
+Rel(replayController, replayEngine, "Triggers replay")
+
+Rel(promoterService, natsClient, "Subscribes EVENTS, Publishes DELTAS")
+Rel(deltaConsumer, natsClient, "Subscribes DELTAS")
+Rel(deltaConsumer, dbContext, "Writes projection")
+
+Rel(memoryCompiler, dbContext, "FTS5 queries")
+Rel(replayEngine, natsClient, "Reads DELTAS from seq 1")
+Rel(replayEngine, dbContext, "Rebuilds projection")
+
+Rel(natsClient, nats, "NATS Protocol")
+Rel(dbContext, sqlite, "SQL")
+
+@enduml

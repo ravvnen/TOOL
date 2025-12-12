@@ -1,0 +1,63 @@
+@startuml Sequence_RuleIngestion
+title Sequence Diagram: Rule Ingestion Flow
+
+skinparam backgroundColor #FEFEFE
+skinparam sequenceMessageAlign center
+
+actor "GitHub" as GH
+participant "TOOL API" as API
+queue "EVENTS\n(JetStream)" as EVENTS
+participant "Promoter\nService" as PROMOTER
+queue "DELTAS\n(JetStream)" as DELTAS
+participant "Projection\nService" as PROJECTOR
+database "SQLite\n(Projection)" as DB
+
+== Rule Change in Repository ==
+
+GH -> API: POST /webhook\n(push event)
+activate API
+
+API -> API: Parse commit\nExtract rule changes
+
+API -> EVENTS: Publish EVENT\n{type: "rule.proposed",\nruleId, content, gitSha}
+activate EVENTS
+EVENTS --> API: ACK (seq: 42)
+deactivate EVENTS
+
+API --> GH: 200 OK
+deactivate API
+
+== Event Processing (Async) ==
+
+EVENTS -> PROMOTER: Deliver EVENT (seq: 42)
+activate PROMOTER
+
+PROMOTER -> PROMOTER: Validate content\nCheck schema\nApply gating rules
+
+alt Approved
+    PROMOTER -> DELTAS: Publish DELTA\n{type: "rule.activated",\nruleId, version, content}
+    activate DELTAS
+    DELTAS --> PROMOTER: ACK (seq: 108)
+    deactivate DELTAS
+else Rejected
+    PROMOTER -> PROMOTER: Log rejection reason
+    note right: No DELTA emitted\nEvent is "filtered out"
+end
+
+PROMOTER -> EVENTS: ACK EVENT (seq: 42)
+deactivate PROMOTER
+
+== Projection Update (Async) ==
+
+DELTAS -> PROJECTOR: Deliver DELTA (seq: 108)
+activate PROJECTOR
+
+PROJECTOR -> DB: UPSERT im_items_current\n(ruleId, version, content)
+PROJECTOR -> DB: INSERT im_items_history\n(ruleId, version, timestamp)
+
+PROJECTOR -> DELTAS: ACK DELTA (seq: 108)
+deactivate PROJECTOR
+
+note over DB: Rule is now queryable\nvia FTS5 search
+
+@enduml

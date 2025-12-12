@@ -1,0 +1,68 @@
+@startuml MultiAgentConsistency
+title Multi-Agent Consistency via Shared Event Log
+
+skinparam backgroundColor #FEFEFE
+
+' Central event log
+queue "DELTAS Stream\n(Single Source of Truth)" as DELTAS #LightGreen
+
+' Multiple agents
+rectangle "Agent A\n(Instance 1)" as A {
+    database "Local\nProjection" as DB_A
+    rectangle "Memory\nCompiler" as MC_A
+}
+
+rectangle "Agent B\n(Instance 2)" as B {
+    database "Local\nProjection" as DB_B
+    rectangle "Memory\nCompiler" as MC_B
+}
+
+rectangle "Agent C\n(Instance 3)" as C {
+    database "Local\nProjection" as DB_C
+    rectangle "Memory\nCompiler" as MC_C
+}
+
+' Subscriptions
+DELTAS --> DB_A : subscribe
+DELTAS --> DB_B : subscribe
+DELTAS --> DB_C : subscribe
+
+' Internal flows
+DB_A --> MC_A
+DB_B --> MC_B
+DB_C --> MC_C
+
+' User queries
+actor "User 1" as U1
+actor "User 2" as U2
+actor "User 3" as U3
+
+U1 --> MC_A : "What is the rate limit?"
+U2 --> MC_B : "What is the rate limit?"
+U3 --> MC_C : "What is the rate limit?"
+
+' Responses (same)
+MC_A --> U1 : "100 req/min\n[im:api.rate_limit@v3]"
+MC_B --> U2 : "100 req/min\n[im:api.rate_limit@v3]"
+MC_C --> U3 : "100 req/min\n[im:api.rate_limit@v3]"
+
+note bottom of DELTAS
+  **Consistency Guarantee**
+
+  All agents consume the same
+  ordered DELTA stream.
+
+  Same DELTAs → Same projection
+  Same projection → Same answers
+  Same answers = H5 verified
+end note
+
+note right of C
+  Agents can be:
+  • Different instances
+  • Different regions
+  • Different versions
+  (as long as they share DELTAS)
+end note
+
+@enduml

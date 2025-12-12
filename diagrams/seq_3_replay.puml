@@ -1,0 +1,74 @@
+@startuml Sequence_Replay
+title Sequence Diagram: State Replay (Determinism Verification)
+
+skinparam backgroundColor #FEFEFE
+skinparam sequenceMessageAlign center
+
+actor "Developer" as DEV
+participant "TOOL API" as API
+participant "Replay\nEngine" as REPLAY
+queue "DELTAS\n(JetStream)" as DELTAS
+database "SQLite\n(Projection)" as DB
+
+== Trigger Full Replay ==
+
+DEV -> API: POST /replay/full
+activate API
+
+API -> REPLAY: StartFullReplay()
+activate REPLAY
+
+== Step 1: Clear Current State ==
+
+REPLAY -> DB: DROP TABLE im_items_current
+REPLAY -> DB: DROP TABLE im_items_history
+REPLAY -> DB: CREATE TABLE im_items_current...
+REPLAY -> DB: CREATE TABLE im_items_history...
+
+note over DB: Projection DB is now empty\n(clean slate)
+
+== Step 2: Replay All DELTAs ==
+
+REPLAY -> DELTAS: Subscribe from seq: 1\n(durable consumer)
+activate DELTAS
+
+loop For each DELTA (seq 1 → N)
+    DELTAS -> REPLAY: DELTA {seq: i, type, ruleId, content}
+
+    REPLAY -> REPLAY: Validate DELTA\nCheck idempotency
+
+    REPLAY -> DB: UPSERT im_items_current\n(ruleId, version, content)
+    REPLAY -> DB: INSERT im_items_history\n(ruleId, version, seq, timestamp)
+
+    REPLAY -> REPLAY: Increment applied count
+end
+
+DELTAS --> REPLAY: End of stream (seq: N)
+deactivate DELTAS
+
+== Step 3: Verify State ==
+
+REPLAY -> DB: SELECT COUNT(*), checksum\nFROM im_items_current
+DB --> REPLAY: {count: 150, checksum: "abc123"}
+
+REPLAY -> REPLAY: Compare with expected state\n(if verification mode)
+
+REPLAY --> API: ReplayResult\n{deltasReplayed: N,\nrulesRestored: 150,\nchecksum: "abc123",\nduration: "2.3s"}
+deactivate REPLAY
+
+API --> DEV: 200 OK\n{success: true, stats: {...}}
+deactivate API
+
+note over DEV: State reconstructed\ndeterministically from\nevent log alone
+
+== Verification (H3 Hypothesis) ==
+
+note over DEV, DB
+  **State Reconstruction Accuracy (SRA)**
+
+  If SRA = 100%: Replay produces identical state
+  This proves the system is deterministic
+  and fully auditable from event history
+end note
+
+@enduml

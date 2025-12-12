@@ -1,0 +1,75 @@
+@startuml EventFlow
+title Event Flow: EVENTS → DELTAS → Projection
+
+skinparam backgroundColor #FEFEFE
+skinparam defaultTextAlignment center
+
+' Styling
+skinparam rectangle {
+    BackgroundColor<<source>> LightBlue
+    BackgroundColor<<stream>> LightGreen
+    BackgroundColor<<service>> LightYellow
+    BackgroundColor<<storage>> LightGray
+}
+
+' Sources
+rectangle "GitHub\nWebhook" as GH <<source>>
+rectangle "Admin\nAPI" as ADMIN <<source>>
+rectangle "Manual\nSeeder" as SEEDER <<source>>
+
+' EVENTS stream
+queue "EVENTS Stream\n(JetStream)" as EVENTS
+
+' Promoter
+rectangle "Promoter Service\n\n• Validates schema\n• Checks permissions\n• Applies gating rules\n• Filters spam/duplicates" as PROMOTER <<service>>
+
+' DELTAS stream
+queue "DELTAS Stream\n(JetStream)" as DELTAS
+
+' Projection
+rectangle "Projection Service\n\n• Consumes DELTAS\n• Updates current state\n• Maintains history\n• Emits SSE notifications" as PROJECTOR <<service>>
+
+' Storage
+database "SQLite + FTS5\n\n• im_items_current\n• im_items_history\n• Full-text search" as DB <<storage>>
+
+' Consumers
+rectangle "Memory\nCompiler" as COMPILER <<service>>
+rectangle "Agent\nAPI" as API <<service>>
+rectangle "Replay\nEngine" as REPLAY <<service>>
+
+' Flow
+GH --> EVENTS
+ADMIN --> EVENTS
+SEEDER --> EVENTS
+
+EVENTS --> PROMOTER : subscribe
+
+PROMOTER --> DELTAS : publish\n(if approved)
+
+DELTAS --> PROJECTOR : subscribe
+DELTAS --> REPLAY : replay from seq 1
+
+PROJECTOR --> DB : upsert
+
+DB --> COMPILER : FTS5 query
+COMPILER --> API : inject rules
+
+note right of EVENTS
+  **Immutable Log**
+  All proposed changes
+  (may include rejected)
+end note
+
+note right of DELTAS
+  **Approved Changes Only**
+  Source of truth for
+  state reconstruction
+end note
+
+note bottom of DB
+  **Derived State**
+  Can be rebuilt by
+  replaying DELTAS
+end note
+
+@enduml

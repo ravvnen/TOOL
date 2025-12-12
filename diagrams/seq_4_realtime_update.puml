@@ -1,0 +1,68 @@
+@startuml Sequence_RealtimeUpdate
+title Sequence Diagram: Real-Time Rule Update (Freshness)
+
+skinparam backgroundColor #FEFEFE
+skinparam sequenceMessageAlign center
+
+actor "Admin" as ADMIN
+participant "Admin UI" as UI
+participant "TOOL API" as API
+queue "EVENTS" as EVENTS
+participant "Promoter" as PROMOTER
+queue "DELTAS" as DELTAS
+participant "Projector" as PROJECTOR
+database "SQLite" as DB
+participant "SSE Hub" as SSE
+participant "Agent UI" as AGENT_UI
+
+== Admin Updates Rule ==
+
+ADMIN -> UI: Edit rule content\nClick "Save"
+activate UI
+
+UI -> API: PUT /admin/rules/{id}\n{content: "new content"}
+activate API
+
+API -> EVENTS: Publish EVENT\n{type: "rule.updated"}
+API --> UI: 202 Accepted
+deactivate API
+deactivate UI
+
+== Async Processing ==
+
+EVENTS -> PROMOTER: EVENT
+activate PROMOTER
+PROMOTER -> DELTAS: DELTA\n{type: "rule.activated", v2}
+deactivate PROMOTER
+
+DELTAS -> PROJECTOR: DELTA
+activate PROJECTOR
+PROJECTOR -> DB: UPDATE im_items_current
+PROJECTOR -> SSE: NotifyRuleChanged(ruleId)
+deactivate PROJECTOR
+
+== Real-Time Push to Clients ==
+
+SSE -> AGENT_UI: SSE: {"event": "rule.updated",\n"ruleId": "...", "version": 2}
+activate AGENT_UI
+
+AGENT_UI -> AGENT_UI: Update local cache\nRefresh display
+
+note over AGENT_UI: Agent sees new rule\nimmediately
+
+deactivate AGENT_UI
+
+== Freshness Measurement ==
+
+note over ADMIN, AGENT_UI
+  **Freshness Latency (H4)**
+
+  t1 = Admin clicks Save
+  t2 = Agent UI displays update
+
+  Freshness = t2 - t1
+
+  Target: < 500ms for real-time UX
+end note
+
+@enduml

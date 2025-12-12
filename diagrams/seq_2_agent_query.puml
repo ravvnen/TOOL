@@ -1,0 +1,59 @@
+@startuml Sequence_AgentQuery
+title Sequence Diagram: Agent Query Flow (with Rule Citation)
+
+skinparam backgroundColor #FEFEFE
+skinparam sequenceMessageAlign center
+
+actor "End User" as USER
+participant "AI Agent" as AGENT
+participant "TOOL API" as API
+participant "Memory\nCompiler" as COMPILER
+database "SQLite\n(FTS5)" as DB
+participant "LLM\nProvider" as LLM
+
+== User Asks Question ==
+
+USER -> AGENT: "What is the API rate limit?"
+activate AGENT
+
+== Agent Retrieves Relevant Rules ==
+
+AGENT -> API: GET /agent/{ns}/memory\n?query="API rate limit"
+activate API
+
+API -> COMPILER: CompileMemory(query, namespace)
+activate COMPILER
+
+COMPILER -> DB: SELECT * FROM im_items_current\nWHERE content MATCH 'API rate limit'\nORDER BY rank LIMIT 5
+activate DB
+DB --> COMPILER: [{ruleId: "api.rate_limit",\nversion: 3, content: "..."}]
+deactivate DB
+
+COMPILER -> COMPILER: Format rules as JSON\nwith citations
+
+COMPILER --> API: MemoryPayload\n[{id, version, content, provenance}]
+deactivate COMPILER
+
+API --> AGENT: 200 OK\n{rules: [...], citations: [...]}
+deactivate API
+
+== Agent Constructs LLM Prompt ==
+
+AGENT -> AGENT: Build prompt:\n"Given these rules:\n[RULES JSON]\nAnswer: {question}"
+
+AGENT -> LLM: POST /chat/completions\n{messages: [...]}
+activate LLM
+
+LLM -> LLM: Generate response\nusing injected rules
+
+LLM --> AGENT: "The API rate limit is\n100 req/min [im:api.rate_limit@v3]"
+deactivate LLM
+
+== Response with Provenance ==
+
+AGENT --> USER: "The API rate limit is\n100 requests per minute.\n\nSource: api.rate_limit v3"
+deactivate AGENT
+
+note over USER: User sees answer\nwith traceable citation
+
+@enduml

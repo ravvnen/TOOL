@@ -1,0 +1,77 @@
+@startuml UseCases
+title Use Case Diagram - TOOL System
+
+left to right direction
+skinparam backgroundColor #FEFEFE
+skinparam packageStyle rectangle
+
+actor "End User" as USER
+actor "AI Agent" as AGENT
+actor "Administrator" as ADMIN
+actor "Developer" as DEV
+actor "GitHub" as GH <<system>>
+
+rectangle "TOOL System" {
+
+    package "Agent Operations" {
+        usecase "Query Rules" as UC_QUERY
+        usecase "Get Memory for Prompt" as UC_MEMORY
+        usecase "Chat with Rules" as UC_CHAT
+        usecase "Explain Answer" as UC_EXPLAIN
+    }
+
+    package "Rule Management" {
+        usecase "Seed Rules from Git" as UC_SEED
+        usecase "Create Rule" as UC_CREATE
+        usecase "Update Rule" as UC_UPDATE
+        usecase "Delete Rule" as UC_DELETE
+        usecase "Approve Rule Change" as UC_APPROVE
+    }
+
+    package "Audit & Compliance" {
+        usecase "View Rule History" as UC_HISTORY
+        usecase "Trace Provenance" as UC_PROVENANCE
+        usecase "Replay from Events" as UC_REPLAY
+        usecase "Verify Determinism" as UC_VERIFY
+    }
+
+    package "Monitoring" {
+        usecase "View System State" as UC_STATE
+        usecase "Subscribe to Updates" as UC_SUBSCRIBE
+        usecase "Check Health" as UC_HEALTH
+    }
+}
+
+' User interactions
+USER --> UC_CHAT : asks question
+USER --> UC_EXPLAIN : "why this answer?"
+
+' Agent interactions
+AGENT --> UC_QUERY
+AGENT --> UC_MEMORY
+AGENT --> UC_SUBSCRIBE
+
+' Admin interactions
+ADMIN --> UC_CREATE
+ADMIN --> UC_UPDATE
+ADMIN --> UC_DELETE
+ADMIN --> UC_APPROVE
+ADMIN --> UC_HISTORY
+
+' Developer interactions
+DEV --> UC_SEED
+DEV --> UC_REPLAY
+DEV --> UC_VERIFY
+DEV --> UC_STATE
+DEV --> UC_HEALTH
+
+' System interactions
+GH --> UC_SEED : webhook
+
+' Relationships
+UC_CHAT ..> UC_MEMORY : <<include>>
+UC_MEMORY ..> UC_QUERY : <<include>>
+UC_EXPLAIN ..> UC_PROVENANCE : <<include>>
+UC_VERIFY ..> UC_REPLAY : <<include>>
+
+@enduml

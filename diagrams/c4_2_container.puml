@@ -1,0 +1,41 @@
+@startuml C4_Container
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+title Container Diagram - TOOL System Architecture
+
+Person(admin, "Administrator", "Manages rules")
+Person(agent, "AI Agent", "Queries rules for LLM prompts")
+
+System_Boundary(tool, "TOOL System") {
+    Container(api, "TOOL API", ".NET 9 / ASP.NET Core", "REST API for all operations: seeding, querying, admin, replay")
+
+    Container(agentui, "Agent UI", "React 19 / Vite", "Debug interface for testing agent queries and viewing rule state")
+
+    ContainerDb(nats, "NATS JetStream", "Event Streaming", "Durable streams for EVENTS and DELTAS with replay support")
+
+    ContainerDb(sqlite, "Projection DB", "SQLite + FTS5", "Current rule state with full-text search index")
+
+    Container(promoter, "Promoter Service", ".NET Background Service", "Consumes EVENTS, applies gating logic, emits DELTAS")
+
+    Container(projector, "Projection Service", ".NET Background Service", "Consumes DELTAS, updates SQLite projection")
+
+    Container(compiler, "Memory Compiler", ".NET Service", "Retrieves relevant rules via FTS5, formats for LLM injection")
+}
+
+System_Ext(github, "GitHub", "Rule source")
+System_Ext(llm, "LLM", "Language Model")
+
+Rel(admin, agentui, "Manages rules", "HTTPS")
+Rel(agent, api, "Queries rules", "REST / MCP")
+
+Rel(github, api, "Webhook on push", "HTTPS")
+Rel(api, nats, "Publishes EVENTS", "NATS Protocol")
+Rel(promoter, nats, "Consumes EVENTS, Publishes DELTAS", "NATS Protocol")
+Rel(projector, nats, "Consumes DELTAS", "NATS Protocol")
+Rel(projector, sqlite, "Writes current state", "SQL")
+Rel(compiler, sqlite, "Reads rules via FTS5", "SQL")
+Rel(api, compiler, "Uses for retrieval", "In-process")
+Rel(api, llm, "Sends augmented prompts", "HTTP")
+Rel(agentui, api, "REST calls", "HTTP")
+
+@enduml

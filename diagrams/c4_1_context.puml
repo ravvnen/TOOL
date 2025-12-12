@@ -1,0 +1,27 @@
+@startuml C4_Context
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
+
+title System Context Diagram - TOOL: Event-Sourced Instruction Memory
+
+Person(admin, "Administrator", "Manages rules, reviews changes, approves/rejects updates")
+Person(developer, "Developer", "Configures agents, monitors system health")
+Person(enduser, "End User", "Interacts with AI agents that use TOOL")
+
+System(tool, "TOOL System", "Event-sourced instruction memory that provides consistent, traceable rules to multiple AI agents")
+
+System_Ext(github, "GitHub", "Source of truth for rule definitions (Markdown/YAML files)")
+System_Ext(llm, "LLM Provider", "Language model API (Ollama, OpenAI, Anthropic)")
+System_Ext(agents, "AI Agent Fleet", "Multiple AI agents that query TOOL for rules")
+
+Rel(admin, tool, "Reviews rules, approves changes", "Web UI / API")
+Rel(developer, tool, "Configures, monitors", "CLI / API")
+Rel(enduser, agents, "Asks questions", "Chat UI")
+
+Rel(github, tool, "Pushes rule changes", "Webhooks")
+Rel(tool, llm, "Sends prompts with rules", "HTTP API")
+Rel(agents, tool, "Queries rules, reports usage", "REST API / MCP")
+
+Lay_D(admin, tool)
+Lay_R(tool, agents)
+
+@enduml
