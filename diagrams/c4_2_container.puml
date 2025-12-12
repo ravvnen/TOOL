@@ -3,39 +3,55 @@
 
 title Container Diagram - TOOL System Architecture
 
-Person(admin, "Administrator", "Manages rules")
-Person(agent, "AI Agent", "Queries rules for LLM prompts")
+Person(user, "User", "Developer/researcher testing the system")
 
 System_Boundary(tool, "TOOL System") {
-    Container(api, "TOOL API", ".NET 9 / ASP.NET Core", "REST API for all operations: seeding, querying, admin, replay")
+    Container(agentui, "Agent.UI", "React 19 / Vite", "Frontend for chat, search, state view, admin CRUD, replay trigger. Calls Ollama directly for LLM responses")
 
-    Container(agentui, "Agent UI", "React 19 / Vite", "Debug interface for testing agent queries and viewing rule state")
+    Container(api, "TOOL API", ".NET 9 / ASP.NET Core", "REST API with modules: SeedProcessing, MemoryManagement, AgentOperations, Admin, Replay")
 
-    ContainerDb(nats, "NATS JetStream", "Event Streaming", "Durable streams for EVENTS and DELTAS with replay support")
+    Container(promoter, "Promoter Service", ".NET Background Service", "Consumes EVENTS, validates, emits DELTAS")
 
-    ContainerDb(sqlite, "Projection DB", "SQLite + FTS5", "Current rule state with full-text search index")
+    Container(projector, "Delta Projector", ".NET Background Service", "Consumes DELTAS, updates SQLite projection")
 
-    Container(promoter, "Promoter Service", ".NET Background Service", "Consumes EVENTS, applies gating logic, emits DELTAS")
-
-    Container(projector, "Projection Service", ".NET Background Service", "Consumes DELTAS, updates SQLite projection")
-
-    Container(compiler, "Memory Compiler", ".NET Service", "Retrieves relevant rules via FTS5, formats for LLM injection")
+    ContainerDb(sqlite, "Projection DB", "SQLite + FTS5", "Tables: im_items_current, im_items_history, source_bindings. Full-text search via FTS5")
 }
 
-System_Ext(github, "GitHub", "Rule source")
-System_Ext(llm, "LLM", "Language Model")
+System_Ext(nats, "NATS JetStream", "Event streaming with durable streams: EVENTS, DELTAS")
+System_Ext(github, "GitHub", "Rule source repository")
+System_Ext(ollama, "Ollama", "Local LLM (llama3)")
 
-Rel(admin, agentui, "Manages rules", "HTTPS")
-Rel(agent, api, "Queries rules", "REST / MCP")
+' User interactions
+Rel(user, agentui, "Uses browser", "HTTP :3000")
 
-Rel(github, api, "Webhook on push", "HTTPS")
-Rel(api, nats, "Publishes EVENTS", "NATS Protocol")
-Rel(promoter, nats, "Consumes EVENTS, Publishes DELTAS", "NATS Protocol")
-Rel(projector, nats, "Consumes DELTAS", "NATS Protocol")
-Rel(projector, sqlite, "Writes current state", "SQL")
-Rel(compiler, sqlite, "Reads rules via FTS5", "SQL")
-Rel(api, compiler, "Uses for retrieval", "In-process")
-Rel(api, llm, "Sends augmented prompts", "HTTP")
-Rel(agentui, api, "REST calls", "HTTP")
+' Agent.UI interactions
+Rel(agentui, api, "compile-memory, search, state, admin CRUD, replay", "HTTP :5293")
+Rel(agentui, ollama, "Chat completions with compiled memory", "HTTP :11434")
+
+' GitHub webhook
+Rel(github, api, "POST /api/v1/seed", "Webhook")
+
+' Internal TOOL flows
+Rel(api, nats, "Publishes to EVENTS stream", "NATS")
+Rel(promoter, nats, "Subscribes EVENTS, publishes DELTAS", "NATS")
+Rel(projector, nats, "Subscribes DELTAS", "NATS")
+Rel(projector, sqlite, "UPSERT rules", "SQL")
+Rel(api, sqlite, "FTS5 queries for memory compilation", "SQL")
+
+note right of agentui
+  Agent.UI handles LLM calls:
+  1. Get compiled memory from TOOL API
+  2. Send to Ollama with memory injected
+  3. Display response with citations
+end note
+
+note bottom of api
+  API Modules:
+  - /api/v1/seed (GitHub webhooks)
+  - /api/v1/compile-memory, /state, /search, /why
+  - /api/v1/admin/rules (CRUD)
+  - /api/v1/admin/replay
+  - /agent/{ns}/memory, /chat, /health
+end note
 
 @enduml

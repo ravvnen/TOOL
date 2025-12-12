@@ -15,36 +15,33 @@ skinparam rectangle {
 ' Sources
 rectangle "GitHub\nWebhook" as GH <<source>>
 rectangle "Admin\nAPI" as ADMIN <<source>>
-rectangle "Manual\nSeeder" as SEEDER <<source>>
 
 ' EVENTS stream
 queue "EVENTS Stream\n(JetStream)" as EVENTS
 
 ' Promoter
-rectangle "Promoter Service\n\n• Validates schema\n• Checks permissions\n• Applies gating rules\n• Filters spam/duplicates" as PROMOTER <<service>>
+rectangle "Promoter Service\n\n• Validates schema\n• Checks event type\n• Applies gating rules\n• Filters duplicates" as PROMOTER <<service>>
 
 ' DELTAS stream
 queue "DELTAS Stream\n(JetStream)" as DELTAS
 
 ' Projection
-rectangle "Projection Service\n\n• Consumes DELTAS\n• Updates current state\n• Maintains history\n• Emits SSE notifications" as PROJECTOR <<service>>
+rectangle "Delta Projector\n\n• Consumes DELTAS\n• Updates current state\n• Maintains history\n• Binds provenance" as PROJECTOR <<service>>
 
 ' Storage
-database "SQLite + FTS5\n\n• im_items_current\n• im_items_history\n• Full-text search" as DB <<storage>>
+database "SQLite + FTS5\n\n• im_items_current\n• im_items_history\n• source_bindings\n• im_fts (search)" as DB <<storage>>
 
 ' Consumers
 rectangle "Memory\nCompiler" as COMPILER <<service>>
-rectangle "Agent\nAPI" as API <<service>>
 rectangle "Replay\nEngine" as REPLAY <<service>>
 
 ' Flow
-GH --> EVENTS
-ADMIN --> EVENTS
-SEEDER --> EVENTS
+GH --> EVENTS : POST /api/v1/seed
+ADMIN --> EVENTS : POST /api/v1/admin/rules
 
 EVENTS --> PROMOTER : subscribe
 
-PROMOTER --> DELTAS : publish\n(if approved)
+PROMOTER --> DELTAS : publish\n(if valid)
 
 DELTAS --> PROJECTOR : subscribe
 DELTAS --> REPLAY : replay from seq 1
@@ -52,12 +49,11 @@ DELTAS --> REPLAY : replay from seq 1
 PROJECTOR --> DB : upsert
 
 DB --> COMPILER : FTS5 query
-COMPILER --> API : inject rules
 
 note right of EVENTS
   **Immutable Log**
   All proposed changes
-  (may include rejected)
+  (may include invalid)
 end note
 
 note right of DELTAS
@@ -70,6 +66,7 @@ note bottom of DB
   **Derived State**
   Can be rebuilt by
   replaying DELTAS
+  (proves H3)
 end note
 
 @enduml

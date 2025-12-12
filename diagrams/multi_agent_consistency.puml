@@ -1,25 +1,33 @@
 @startuml MultiAgentConsistency
-title Multi-Agent Consistency via Shared Event Log
+title Multi-Agent Consistency via Shared Event Log (H5 Hypothesis)
 
 skinparam backgroundColor #FEFEFE
+
+note as N1
+  **This diagram shows the theoretical multi-agent scenario**
+  that hypothesis H5 (Consistency) will test.
+
+  Currently: Single Agent.UI instance
+  Planned: Multiple TOOL API instances sharing DELTAS
+end note
 
 ' Central event log
 queue "DELTAS Stream\n(Single Source of Truth)" as DELTAS #LightGreen
 
-' Multiple agents
-rectangle "Agent A\n(Instance 1)" as A {
-    database "Local\nProjection" as DB_A
-    rectangle "Memory\nCompiler" as MC_A
+' Multiple TOOL API instances
+rectangle "TOOL Instance A" as A {
+    database "Projection A" as DB_A
+    rectangle "Memory\nCompiler A" as MC_A
 }
 
-rectangle "Agent B\n(Instance 2)" as B {
-    database "Local\nProjection" as DB_B
-    rectangle "Memory\nCompiler" as MC_B
+rectangle "TOOL Instance B" as B {
+    database "Projection B" as DB_B
+    rectangle "Memory\nCompiler B" as MC_B
 }
 
-rectangle "Agent C\n(Instance 3)" as C {
-    database "Local\nProjection" as DB_C
-    rectangle "Memory\nCompiler" as MC_C
+rectangle "TOOL Instance C" as C {
+    database "Projection C" as DB_C
+    rectangle "Memory\nCompiler C" as MC_C
 }
 
 ' Subscriptions
@@ -32,37 +40,37 @@ DB_A --> MC_A
 DB_B --> MC_B
 DB_C --> MC_C
 
-' User queries
+' User queries (via different frontends)
 actor "User 1" as U1
 actor "User 2" as U2
 actor "User 3" as U3
 
-U1 --> MC_A : "What is the rate limit?"
-U2 --> MC_B : "What is the rate limit?"
-U3 --> MC_C : "What is the rate limit?"
+U1 --> MC_A : compile-memory\n"rate limit?"
+U2 --> MC_B : compile-memory\n"rate limit?"
+U3 --> MC_C : compile-memory\n"rate limit?"
 
-' Responses (same)
-MC_A --> U1 : "100 req/min\n[im:api.rate_limit@v3]"
-MC_B --> U2 : "100 req/min\n[im:api.rate_limit@v3]"
-MC_C --> U3 : "100 req/min\n[im:api.rate_limit@v3]"
+' Responses (same rules retrieved)
+MC_A --> U1 : [{id: "api.rate_limit", v: 3}]
+MC_B --> U2 : [{id: "api.rate_limit", v: 3}]
+MC_C --> U3 : [{id: "api.rate_limit", v: 3}]
 
 note bottom of DELTAS
-  **Consistency Guarantee**
+  **Consistency Guarantee (H5)**
 
-  All agents consume the same
+  All instances consume the same
   ordered DELTA stream.
 
   Same DELTAs → Same projection
-  Same projection → Same answers
-  Same answers = H5 verified
+  Same projection → Same rules returned
+  Same rules → Consistent LLM behavior
 end note
 
 note right of C
-  Agents can be:
-  • Different instances
-  • Different regions
-  • Different versions
-  (as long as they share DELTAS)
+  Test setup (Docker Compose):
+  - 3 TOOL API containers
+  - Shared NATS JetStream
+  - Each has local SQLite
+  - Same query → same result
 end note
 
 @enduml

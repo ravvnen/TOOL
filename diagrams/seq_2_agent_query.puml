@@ -1,59 +1,73 @@
 @startuml Sequence_AgentQuery
-title Sequence Diagram: Agent Query Flow (with Rule Citation)
+title Sequence Diagram: Chat Flow (User → Agent.UI → TOOL API → Ollama)
 
 skinparam backgroundColor #FEFEFE
 skinparam sequenceMessageAlign center
 
-actor "End User" as USER
-participant "AI Agent" as AGENT
-participant "TOOL API" as API
+actor "User" as USER
+participant "Agent.UI\n(React)" as UI
+participant "TOOL API\n(.NET)" as API
 participant "Memory\nCompiler" as COMPILER
 database "SQLite\n(FTS5)" as DB
-participant "LLM\nProvider" as LLM
+participant "Ollama\n(localhost)" as LLM
 
-== User Asks Question ==
+== User Types Question in Chat ==
 
-USER -> AGENT: "What is the API rate limit?"
-activate AGENT
+USER -> UI: Types "What is the API rate limit?"
+activate UI
 
-== Agent Retrieves Relevant Rules ==
+UI -> UI: handleSendMessage()
 
-AGENT -> API: GET /agent/{ns}/memory\n?query="API rate limit"
+== Step 1: Compile Memory from TOOL API ==
+
+UI -> API: POST /api/v1/compile-memory\n{prompt: "...", topK: 6, ns: "..."}
 activate API
 
-API -> COMPILER: CompileMemory(query, namespace)
+API -> COMPILER: SelectRelevantAsync(ns, prompt, topK)
 activate COMPILER
 
-COMPILER -> DB: SELECT * FROM im_items_current\nWHERE content MATCH 'API rate limit'\nORDER BY rank LIMIT 5
+COMPILER -> DB: FTS5 MATCH query\nSELECT FROM im_items_current\nJOIN im_fts ...
 activate DB
-DB --> COMPILER: [{ruleId: "api.rate_limit",\nversion: 3, content: "..."}]
+DB --> COMPILER: [{item_id, title, content, version}]
 deactivate DB
 
-COMPILER -> COMPILER: Format rules as JSON\nwith citations
+COMPILER -> COMPILER: BuildMemoryJson()\nFormat with rule IDs
 
-COMPILER --> API: MemoryPayload\n[{id, version, content, provenance}]
+COMPILER --> API: CompiledMemory\n{ns, rules: [...], generatedAt}
 deactivate COMPILER
 
-API --> AGENT: 200 OK\n{rules: [...], citations: [...]}
+API --> UI: 200 OK\n{ns, rules: [{id, title, content, version}]}
 deactivate API
 
-== Agent Constructs LLM Prompt ==
+== Step 2: Call Ollama with Compiled Memory ==
 
-AGENT -> AGENT: Build prompt:\n"Given these rules:\n[RULES JSON]\nAnswer: {question}"
+UI -> UI: Build messages array:\n- system: "You are a coding assistant..."\n- system: INSTRUCTIONS_MEMORY_JSON\n- user: prompt
 
-AGENT -> LLM: POST /chat/completions\n{messages: [...]}
+UI -> LLM: POST /api/chat\n{model: "llama3", messages: [...]}
 activate LLM
 
 LLM -> LLM: Generate response\nusing injected rules
 
-LLM --> AGENT: "The API rate limit is\n100 req/min [im:api.rate_limit@v3]"
+LLM --> UI: {message: {content: "The API rate limit is\n100 req/min [im:api.rate_limit@v3]"}}
 deactivate LLM
 
-== Response with Provenance ==
+== Step 3: Display Response ==
 
-AGENT --> USER: "The API rate limit is\n100 requests per minute.\n\nSource: api.rate_limit v3"
-deactivate AGENT
+UI -> UI: Add assistant message\nwith memory context
 
-note over USER: User sees answer\nwith traceable citation
+UI --> USER: Shows response with\nrule citation [im:api.rate_limit@v3]
+deactivate UI
+
+note over USER
+  User can click rule citation
+  to see provenance via
+  GET /api/v1/why?id=...
+end note
+
+note over UI, LLM
+  Key insight: TOOL API never calls LLM directly.
+  Agent.UI orchestrates both calls.
+  This keeps TOOL focused on memory management.
+end note
 
 @enduml

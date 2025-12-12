@@ -3,25 +3,34 @@
 
 title System Context Diagram - TOOL: Event-Sourced Instruction Memory
 
-Person(admin, "Administrator", "Manages rules, reviews changes, approves/rejects updates")
-Person(developer, "Developer", "Configures agents, monitors system health")
-Person(enduser, "End User", "Interacts with AI agents that use TOOL")
+Person(user, "User", "Developer/researcher who interacts with the system via Agent.UI to chat, search rules, and test the memory system")
 
-System(tool, "TOOL System", "Event-sourced instruction memory that provides consistent, traceable rules to multiple AI agents")
+System(tool, "TOOL System", "Event-sourced instruction memory API that stores rules, provides FTS5 search, and compiles relevant rules for LLM prompts")
 
-System_Ext(github, "GitHub", "Source of truth for rule definitions (Markdown/YAML files)")
-System_Ext(llm, "LLM Provider", "Language model API (Ollama, OpenAI, Anthropic)")
-System_Ext(agents, "AI Agent Fleet", "Multiple AI agents that query TOOL for rules")
+System_Ext(github, "GitHub", "Source repository for rule definitions. Sends webhooks on push events")
+System_Ext(ollama, "Ollama", "Local LLM (e.g., llama3) running on user's machine. Called directly from Agent.UI browser")
+System_Ext(nats, "NATS JetStream", "Event streaming infrastructure. Stores EVENTS and DELTAS streams")
 
-Rel(admin, tool, "Reviews rules, approves changes", "Web UI / API")
-Rel(developer, tool, "Configures, monitors", "CLI / API")
-Rel(enduser, agents, "Asks questions", "Chat UI")
+Rel(user, tool, "Uses Agent.UI to chat, search rules, trigger replay", "HTTP (Browser)")
+Rel(user, ollama, "Agent.UI calls Ollama for LLM responses", "HTTP (localhost:11434)")
 
-Rel(github, tool, "Pushes rule changes", "Webhooks")
-Rel(tool, llm, "Sends prompts with rules", "HTTP API")
-Rel(agents, tool, "Queries rules, reports usage", "REST API / MCP")
+Rel(github, tool, "Pushes rule changes via webhook", "POST /api/v1/seed")
+Rel(tool, nats, "Publishes EVENTS, consumes DELTAS", "NATS Protocol")
 
-Lay_D(admin, tool)
-Lay_R(tool, agents)
+note right of user
+  Single user persona:
+  - Chats with LLM (rules injected)
+  - Searches/browses rules
+  - Admin CRUD on rules
+  - Triggers replay for testing
+end note
+
+note bottom of tool
+  TOOL provides:
+  - Rule storage (SQLite + FTS5)
+  - Memory compilation
+  - Provenance tracking
+  - Replay engine
+end note
 
 @enduml
