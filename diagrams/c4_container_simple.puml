@@ -1,0 +1,51 @@
+@startuml C4_Container_Simple
+title TOOL System - Container Diagram
+
+skinparam backgroundColor #FEFEFE
+skinparam defaultTextAlignment center
+
+actor "User" as user
+
+rectangle "TOOL System" {
+    rectangle "Agent.UI\n(React)" as ui #LightGreen
+    rectangle "TOOL API\n(.NET 9)" as api #LightGreen
+    rectangle "Promoter\nService" as promoter #LightGreen
+    rectangle "Delta\nProjector" as projector #LightGreen
+    database "SQLite\n+ FTS5" as db #LightBlue
+}
+
+queue "NATS JetStream" as nats #LightGray {
+    queue "EVENTS" as events
+    queue "DELTAS" as deltas
+}
+
+rectangle "GitHub" as github #LightGray
+rectangle "Ollama" as ollama #LightGray
+
+' User flow
+user --> ui : Browser\n:3000
+ui --> api : REST API\n:5293
+ui --> ollama : Chat\n:11434
+
+' GitHub webhook
+github --> api : POST /api/v1/seed
+
+' Event flow
+api --> events : Publish
+promoter --> events : Subscribe
+promoter --> deltas : Publish
+projector --> deltas : Subscribe
+projector --> db : UPSERT
+
+' Query flow
+api --> db : FTS5 Query
+
+note bottom of api
+  **API Modules:**
+  • SeedController
+  • MemoryController
+  • AdminController
+  • ReplayController
+end note
+
+@enduml

@@ -1,0 +1,69 @@
+@startuml System_Flow
+title TOOL System - End-to-End Flow
+
+skinparam backgroundColor #FEFEFE
+
+actor "User" as USER
+participant "Agent.UI" as UI
+participant "TOOL API" as API
+database "SQLite" as DB
+queue "EVENTS" as EVENTS
+participant "Promoter" as PROM
+queue "DELTAS" as DELTAS
+participant "Projector" as PROJ
+participant "Ollama" as LLM
+
+== Flow 1: Rule Ingestion (from GitHub or Admin) ==
+
+API -> EVENTS : Publish EVENT
+EVENTS -> PROM : Deliver
+PROM -> PROM : Validate
+PROM -> DELTAS : Publish DELTA
+DELTAS -> PROJ : Deliver
+PROJ -> DB : UPSERT rule
+
+note over EVENTS, DELTAS
+  Event Sourcing:
+  EVENTS = all proposed changes
+  DELTAS = approved changes only
+end note
+
+== Flow 2: User Chat (with Rule Injection) ==
+
+USER -> UI : Ask question
+UI -> API : POST /compile-memory
+API -> DB : FTS5 search
+DB --> API : Relevant rules
+API --> UI : Compiled memory JSON
+
+UI -> LLM : Send prompt + rules
+LLM --> UI : Response with citations
+
+UI --> USER : Answer: "... [im:rule.id@v3]"
+
+note over UI, LLM
+  Key: TOOL compiles memory,
+  Agent.UI calls LLM directly
+end note
+
+== Flow 3: Replay Verification (H3) ==
+
+USER -> UI : Click "Replay"
+UI -> API : POST /admin/replay
+API -> DELTAS : Read from seq 1
+API -> API : Rebuild state in temp DB
+API -> API : Compute hash
+API --> UI : {hash, count}
+
+UI -> API : GET /state
+API --> UI : {current hash}
+
+UI -> UI : Compare hashes
+UI --> USER : "SRA = 100% ✓"
+
+note over API
+  Proves determinism:
+  same DELTAs = same state
+end note
+
+@enduml

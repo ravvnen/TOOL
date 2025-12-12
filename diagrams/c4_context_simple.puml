@@ -1,0 +1,44 @@
+@startuml C4_Context_Simple
+title TOOL System - Context Diagram
+
+skinparam backgroundColor #FEFEFE
+skinparam defaultTextAlignment center
+skinparam rectangle {
+    roundCorner 20
+}
+
+' Actors
+actor "User" as user
+
+' Systems
+rectangle "TOOL System" as tool #LightBlue {
+}
+
+rectangle "GitHub" as github #LightGray
+rectangle "Ollama\n(Local LLM)" as ollama #LightGray
+rectangle "NATS\nJetStream" as nats #LightGray
+
+' Relationships
+user --> tool : Uses Agent.UI\n(HTTP :3000)
+user --> ollama : Chat completions\n(HTTP :11434)
+
+github --> tool : Webhook\nPOST /api/v1/seed
+tool --> nats : Publish EVENTS\nConsume DELTAS
+
+note right of user
+  **User Actions:**
+  • Chat with LLM (rules injected)
+  • Search/browse rules
+  • Admin CRUD on rules
+  • Trigger replay verification
+end note
+
+note bottom of tool
+  **TOOL provides:**
+  • Rule storage (SQLite + FTS5)
+  • Memory compilation for LLM
+  • Provenance tracking
+  • Replay engine (H3)
+end note
+
+@enduml
