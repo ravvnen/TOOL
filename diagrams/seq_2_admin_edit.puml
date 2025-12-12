@@ -1,0 +1,86 @@
+@startuml Seq_AdminEdit
+title Sequence: Admin Edits a Rule
+
+skinparam backgroundColor #FEFEFE
+skinparam sequenceMessageAlign center
+
+actor "User" as USER
+participant "Agent.UI" as UI
+participant "TOOL API\n(AdminController)" as API
+queue "EVENTS" as EVENTS #LightBlue
+participant "Promoter\nService" as PROM
+queue "DELTAS" as DELTAS #LightGreen
+queue "AUDITS" as AUDITS #LightYellow
+participant "Delta\nProjector" as PROJ
+database "SQLite" as DB
+
+== User Edits Rule in Admin Tab ==
+
+USER -> UI : Navigate to Admin tab\nSelect rule, edit content\nClick "Save"
+activate UI
+
+UI -> API : PUT /api/v1/admin/rules/{itemId}\n{title, content, labels,\nadmin_user_id, reason,\nexpected_version}
+activate API
+
+API -> API : Validate request\nGenerate eventId
+
+API -> EVENTS : Publish EVENT\n{type: "Admin.RuleEditRequested",\nns, item_id, action: "update",\ntitle, content, labels,\nadmin_metadata: {\n  user_id, reason,\n  bypass_review: true,\n  expected_version\n},\nsource: {repo: "admin.override"}}
+
+API --> UI : 202 Accepted\n{eventId, subject}
+deactivate API
+
+UI --> USER : "Rule update submitted"
+deactivate UI
+
+== Promoter Handles Admin Event (Bypass Policy) ==
+
+EVENTS -> PROM : Deliver EVENT\n(subject starts with evt.admin.rule.*)
+activate PROM
+
+PROM -> PROM : HandleAdminEventAsync()\nbypass_review == true\n→ Skip normal policy
+
+PROM -> DB : Query promoter_items\nGet current version
+
+alt expected_version != current version
+    PROM -> AUDITS : Publish AUDIT\n{action: "skip",\nreason_code: "admin.conflict",\nreason_detail: "Version conflict"}
+    PROM -> EVENTS : ACK
+else Version OK (or no conflict check)
+    PROM -> PROM : newVersion = currentVersion + 1\nCanonicalize content\nUpdate promoter_items
+
+    PROM -> DELTAS : Publish DELTA\n{type: "im.upsert.v1",\nns, item_id,\nnew_version,\npolicy_version: "...-admin"}
+
+    PROM -> AUDITS : Publish AUDIT\n{action: "upsert",\nreason_code: "admin.update",\nreason_detail: "User provided reason"}
+
+    PROM -> EVENTS : ACK
+end
+deactivate PROM
+
+== Projector Updates SQLite ==
+
+DELTAS -> PROJ : Deliver DELTA
+activate PROJ
+
+PROJ -> DB : UPSERT im_items_current\n(version++, new content)
+PROJ -> DB : INSERT im_items_history
+PROJ -> DB : UPDATE im_fts
+
+PROJ -> DELTAS : ACK
+deactivate PROJ
+
+note over DB
+  Rule updated with:
+  • New version number
+  • Admin provenance
+  • Full audit trail in AUDITS
+end note
+
+== User Sees Update (Manual Refresh) ==
+
+USER -> UI : Switch tab or refresh
+UI -> API : GET /api/v1/debug/items
+API -> DB : SELECT * FROM im_items_current
+DB --> API : Updated rules
+API --> UI : Rules list
+UI --> USER : Shows updated rule
+
+@enduml

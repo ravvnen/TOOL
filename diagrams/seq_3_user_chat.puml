@@ -1,0 +1,69 @@
+@startuml Seq_UserChat
+title Sequence: User Asks Question via Chat
+
+skinparam backgroundColor #FEFEFE
+skinparam sequenceMessageAlign center
+
+actor "User" as USER
+participant "Agent.UI" as UI
+participant "TOOL API\n(AgentController)" as API
+participant "Memory\nCompiler" as MEM
+database "SQLite\n+ FTS5" as DB
+participant "Ollama\n(LLM)" as LLM
+
+== User Types Question ==
+
+USER -> UI : "What is the API rate limit policy?"
+activate UI
+
+UI -> API : POST /agent/{ns}/chat\n{prompt: "What is the API rate limit policy?",\ntopK: 6}
+activate API
+
+== Memory Compilation (FTS5 Search) ==
+
+API -> MEM : SelectRelevantAsync(ns, prompt, topK)
+activate MEM
+
+MEM -> DB : SELECT * FROM im_items_current c\nJOIN im_fts f ON c.item_id = f.item_id\nWHERE f MATCH 'API rate limit policy'\nAND c.is_active = 1\nORDER BY rank\nLIMIT 6
+activate DB
+
+DB --> MEM : [{item_id: "api.rate_limit",\nversion: 3,\ntitle: "API Rate Limiting",\ncontent: "Rate limit: 100 req/min..."}]
+deactivate DB
+
+MEM -> MEM : BuildMemoryJson()\nFormat rules with IDs for citation
+
+MEM --> API : CompiledMemory\n{ns, rules: [...], generatedAt}
+deactivate MEM
+
+== LLM Call with Injected Rules ==
+
+API -> API : Build messages array:\n[\n  {role: "system", content: "You are a coding assistant.\n   You MUST obey the Instruction Memory.\n   Cite rule IDs in [im:id@vN] format."},\n  {role: "system", content: "INSTRUCTIONS_MEMORY_JSON\n   " + JSON.stringify(memory)},\n  {role: "user", content: prompt}\n]
+
+API -> LLM : POST /api/chat\n{model: "llama3",\nmessages: [...],\ntemperature: 0.2}
+activate LLM
+
+LLM -> LLM : Generate response\nusing injected rules\nInclude citations
+
+LLM --> API : {message: {\n  role: "assistant",\n  content: "The API rate limit is\n  100 requests per minute per client.\n  [im:api.rate_limit@v3]"\n}}
+deactivate LLM
+
+== Response to User ==
+
+API --> UI : 200 OK\n{response: "...",\nmemory: {...},\ncitations: ["api.rate_limit@v3"]}
+deactivate API
+
+UI -> UI : Display response\nHighlight citations
+
+UI --> USER : "The API rate limit is\n100 requests per minute per client.\n\n📎 Source: api.rate_limit v3"
+deactivate UI
+
+== Optional: User Asks "Why?" ==
+
+USER -> UI : Clicks citation or asks "why?"
+UI -> API : GET /api/v1/why?id=api.rate_limit
+API -> DB : SELECT * FROM source_bindings\nWHERE item_id = 'api.rate_limit'
+DB --> API : {repo, ref, path, blob_sha}
+API --> UI : ProvenanceResponse
+UI --> USER : "This rule comes from:\nrepo/path @ commit abc123"
+
+@enduml

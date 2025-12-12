@@ -1,0 +1,77 @@
+@startuml Seq_SeedToRule
+title Sequence: GitHub Seed → Rule in Projection
+
+skinparam backgroundColor #FEFEFE
+skinparam sequenceMessageAlign center
+
+participant "GitHub" as GH
+participant "TOOL API\n(SeedController)" as API
+queue "EVENTS" as EVENTS #LightBlue
+participant "Promoter\nService" as PROM
+queue "DELTAS" as DELTAS #LightGreen
+queue "AUDITS" as AUDITS #LightYellow
+participant "Delta\nProjector" as PROJ
+database "SQLite" as DB
+
+== GitHub Push Triggers Webhook ==
+
+GH -> API : POST /api/v1/seed\n{repository, ref, commits[]}
+activate API
+
+API -> API : SeedHandler.HandleAsync()\nParse commits, extract rules
+
+API -> EVENTS : Publish EVENT\n{type: "Seed.RuleProposed",\nns, item_id, title, content,\nsource: {repo, ref, path, blob_sha}}
+
+API --> GH : 200 OK {subject: "evt.seed..."}
+deactivate API
+
+== Promoter Evaluates Policy ==
+
+EVENTS -> PROM : Deliver EVENT
+activate PROM
+
+PROM -> PROM : EvaluatePolicy()\n• source.ref == main/master?\n• ci == green or n/a?\n• labels contains "experimental"?
+
+alt Branch != main OR CI red OR experimental
+    PROM -> AUDITS : Publish AUDIT\n{action: "skip",\nreason_code: "branch:not-main"}
+    PROM -> EVENTS : ACK
+else Branch == main, CI OK
+    PROM -> PROM : Canonicalize(title, content)\ncontentHash = SHA256(itemId + title + content)
+
+    PROM -> PROM : Check promoter_items\nfor existing version
+
+    alt Same contentHash (no change)
+        PROM -> AUDITS : Publish AUDIT\n{action: "skip",\nreason_code: "unchanged"}
+    else New or changed content
+        PROM -> PROM : newVersion = baseVersion + 1\nUpdate promoter_items\nInsert promoter_item_versions
+
+        PROM -> DELTAS : Publish DELTA\n{type: "im.upsert.v1",\nns, item_id,\nbase_version, new_version,\ntitle, content, labels,\nsource: {...}}
+
+        PROM -> AUDITS : Publish AUDIT\n{action: "upsert",\nreason_code: "ok",\ndelta_seq: N}
+    end
+end
+
+PROM -> EVENTS : ACK
+deactivate PROM
+
+== Projector Updates SQLite ==
+
+DELTAS -> PROJ : Deliver DELTA
+activate PROJ
+
+PROJ -> DB : UPSERT im_items_current\n(ns, item_id, version, title, content, is_active=1)
+PROJ -> DB : INSERT im_items_history
+PROJ -> DB : INSERT source_bindings\n(repo, ref, path, blob_sha)
+PROJ -> DB : UPDATE im_fts\n(FTS5 full-text index)
+
+PROJ -> DELTAS : ACK
+deactivate PROJ
+
+note over DB
+  Rule is now:
+  • Stored in im_items_current
+  • Searchable via FTS5
+  • Traceable via source_bindings
+end note
+
+@enduml
