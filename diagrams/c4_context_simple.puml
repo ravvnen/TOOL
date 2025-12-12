@@ -7,20 +7,17 @@ skinparam rectangle {
     roundCorner 20
 }
 
-' Actors
 actor "User" as user
 
-' Systems
-rectangle "TOOL System" as tool #LightBlue {
-}
+rectangle "TOOL System\n(Agent.UI + API)" as tool #LightBlue
 
 rectangle "GitHub" as github #LightGray
 rectangle "Ollama\n(Local LLM)" as ollama #LightGray
 rectangle "NATS\nJetStream" as nats #LightGray
 
 ' Relationships
-user --> tool : Uses Agent.UI\n(HTTP :3000)
-user --> ollama : Chat completions\n(HTTP :11434)
+user --> tool : Interacts via\nAgent.UI (:3000)
+tool --> ollama : Sends prompts\nwith rules (:11434)
 
 github --> tool : Webhook\nPOST /api/v1/seed
 tool --> nats : Publish EVENTS\nConsume DELTAS
@@ -34,11 +31,11 @@ note right of user
 end note
 
 note bottom of tool
-  **TOOL provides:**
-  • Rule storage (SQLite + FTS5)
-  • Memory compilation for LLM
-  • Provenance tracking
-  • Replay engine (H3)
+  **TOOL System includes:**
+  • Agent.UI (React frontend)
+  • TOOL API (.NET backend)
+  • SQLite + FTS5 storage
+  • Replay engine
 end note
 
 @enduml

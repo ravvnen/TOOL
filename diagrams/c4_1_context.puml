@@ -5,31 +5,31 @@ title System Context Diagram - TOOL: Event-Sourced Instruction Memory
 
 Person(user, "User", "Developer/researcher who interacts with the system via Agent.UI to chat, search rules, and test the memory system")
 
-System(tool, "TOOL System", "Event-sourced instruction memory API that stores rules, provides FTS5 search, and compiles relevant rules for LLM prompts")
+System(tool, "TOOL System", "Event-sourced instruction memory with Agent.UI frontend and .NET API backend. Compiles rules and generates LLM responses")
 
 System_Ext(github, "GitHub", "Source repository for rule definitions. Sends webhooks on push events")
-System_Ext(ollama, "Ollama", "Local LLM (e.g., llama3) running on user's machine. Called directly from Agent.UI browser")
+System_Ext(ollama, "Ollama", "Local LLM (e.g., llama3) for generating responses with injected rules")
 System_Ext(nats, "NATS JetStream", "Event streaming infrastructure. Stores EVENTS and DELTAS streams")
 
-Rel(user, tool, "Uses Agent.UI to chat, search rules, trigger replay", "HTTP (Browser)")
-Rel(user, ollama, "Agent.UI calls Ollama for LLM responses", "HTTP (localhost:11434)")
+Rel(user, tool, "Interacts via Agent.UI", "HTTP :3000")
+Rel(tool, ollama, "Sends prompts with compiled rules", "HTTP :11434")
 
 Rel(github, tool, "Pushes rule changes via webhook", "POST /api/v1/seed")
 Rel(tool, nats, "Publishes EVENTS, consumes DELTAS", "NATS Protocol")
 
 note right of user
-  Single user persona:
-  - Chats with LLM (rules injected)
-  - Searches/browses rules
+  User actions via Agent.UI:
+  - Chat with LLM (rules injected)
+  - Search/browse rules
   - Admin CRUD on rules
-  - Triggers replay for testing
+  - Trigger replay verification
 end note
 
 note bottom of tool
-  TOOL provides:
-  - Rule storage (SQLite + FTS5)
-  - Memory compilation
-  - Provenance tracking
+  TOOL System includes:
+  - Agent.UI (React frontend)
+  - TOOL API (.NET backend)
+  - SQLite + FTS5 storage
   - Replay engine
 end note
 

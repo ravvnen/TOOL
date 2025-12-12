@@ -7,8 +7,8 @@ skinparam defaultTextAlignment center
 actor "User" as user
 
 rectangle "TOOL System" {
-    rectangle "Agent.UI\n(React)" as ui #LightGreen
-    rectangle "TOOL API\n(.NET 9)" as api #LightGreen
+    rectangle "Agent.UI\n(React :3000)" as ui #LightGreen
+    rectangle "TOOL API\n(.NET :5293)" as api #LightGreen
     rectangle "Promoter\nService" as promoter #LightGreen
     rectangle "Delta\nProjector" as projector #LightGreen
     database "SQLite\n+ FTS5" as db #LightBlue
@@ -20,12 +20,14 @@ queue "NATS JetStream" as nats #LightGray {
 }
 
 rectangle "GitHub" as github #LightGray
-rectangle "Ollama" as ollama #LightGray
+rectangle "Ollama\n(:11434)" as ollama #LightGray
 
 ' User flow
-user --> ui : Browser\n:3000
-ui --> api : REST API\n:5293
-ui --> ollama : Chat\n:11434
+user --> ui : Browser
+ui --> api : REST API
+
+' LLM flow (API calls Ollama)
+api --> ollama : Chat completions\nwith compiled rules
 
 ' GitHub webhook
 github --> api : POST /api/v1/seed
@@ -46,6 +48,7 @@ note bottom of api
   • MemoryController
   • AdminController
   • ReplayController
+  • AgentController (LLM)
 end note
 
 @enduml

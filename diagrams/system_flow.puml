@@ -31,19 +31,21 @@ end note
 == Flow 2: User Chat (with Rule Injection) ==
 
 USER -> UI : Ask question
-UI -> API : POST /compile-memory
-API -> DB : FTS5 search
+UI -> API : POST /agent/{ns}/chat
+API -> DB : FTS5 search (compile memory)
 DB --> API : Relevant rules
-API --> UI : Compiled memory JSON
 
-UI -> LLM : Send prompt + rules
-LLM --> UI : Response with citations
+API -> LLM : Send prompt + compiled rules
+LLM --> API : Response with citations
 
-UI --> USER : Answer: "... [im:rule.id@v3]"
+API --> UI : Answer with memory context
+UI --> USER : "... [im:rule.id@v3]"
 
-note over UI, LLM
-  Key: TOOL compiles memory,
-  Agent.UI calls LLM directly
+note over API, LLM
+  TOOL API orchestrates:
+  1. Compile memory
+  2. Call Ollama
+  3. Return response
 end note
 
 == Flow 3: Replay Verification (H3) ==
