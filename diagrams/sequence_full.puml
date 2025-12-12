@@ -1,0 +1,95 @@
+@startuml Sequence_Full
+title TOOL System - Complete Event Flow
+
+skinparam backgroundColor #FEFEFE
+skinparam sequenceMessageAlign center
+
+actor "User" as USER
+participant "Agent.UI\n(React)" as UI
+participant "TOOL API\n(.NET)" as API
+database "SQLite\n+ FTS5" as DB
+queue "EVENTS" as EVENTS #LightBlue
+participant "Promoter\nService" as PROM
+queue "DELTAS" as DELTAS #LightGreen
+queue "AUDITS" as AUDITS #LightYellow
+participant "Delta\nProjector" as PROJ
+participant "Ollama\n(LLM)" as LLM
+
+== 1. Rule Ingestion (GitHub Webhook or Admin CRUD) ==
+
+API -> EVENTS : Publish EVENT\n{type: "Seed.RuleProposed",\nns, item_id, content, source}
+
+EVENTS -> PROM : Deliver EVENT
+activate PROM
+
+PROM -> PROM : EvaluatePolicy()\n• Check branch (main?)\n• Check CI status\n• Check labels
+
+alt Policy: SKIP (non-main, experimental, CI red)
+    PROM -> AUDITS : Publish AUDIT\n{action: "skip",\nreason_code: "branch:not-main"}
+    PROM -> EVENTS : ACK (no DELTA)
+else Policy: PROMOTE (approved)
+    PROM -> PROM : Canonicalize content\nCompute content hash\nCheck idempotency
+
+    alt Content unchanged
+        PROM -> AUDITS : Publish AUDIT\n{action: "skip",\nreason_code: "unchanged"}
+    else Content changed → UPSERT
+        PROM -> DELTAS : Publish DELTA\n{type: "im.upsert.v1",\nnew_version, content}
+        PROM -> AUDITS : Publish AUDIT\n{action: "upsert",\ndelta_seq: N}
+    else Retract action
+        PROM -> DELTAS : Publish DELTA\n{type: "im.retract.v1"}
+        PROM -> AUDITS : Publish AUDIT\n{action: "retract"}
+    end
+end
+deactivate PROM
+
+== 2. Projection Update ==
+
+DELTAS -> PROJ : Deliver DELTA
+activate PROJ
+PROJ -> DB : UPSERT im_items_current
+PROJ -> DB : INSERT im_items_history
+PROJ -> DB : INSERT source_bindings
+PROJ -> DB : UPDATE im_fts (FTS5)
+PROJ -> DELTAS : ACK
+deactivate PROJ
+
+note over DB : Rule now queryable
+
+== 3. User Chat (Rule-Augmented LLM) ==
+
+USER -> UI : "What is the rate limit policy?"
+UI -> API : POST /agent/{ns}/chat\n{prompt: "..."}
+activate API
+
+API -> DB : FTS5 MATCH query
+DB --> API : Relevant rules [{id, content, version}]
+
+API -> API : Build LLM messages:\n• system: "You are a coding assistant..."\n• system: INSTRUCTIONS_MEMORY_JSON\n• user: prompt
+
+API -> LLM : POST /api/chat\n{model, messages}
+LLM --> API : Response with citations\n"... [im:api.rate_limit@v3]"
+
+API --> UI : {response, memory, citations}
+deactivate API
+
+UI --> USER : "The rate limit is 100 req/min\n[im:api.rate_limit@v3]"
+
+== 4. Replay Verification (H3) ==
+
+USER -> UI : Click "Trigger Replay"
+UI -> API : POST /api/v1/admin/replay
+
+API -> API : Create temp DB
+API -> DELTAS : Read all from seq 1
+API -> API : Apply each DELTA to temp DB
+API -> API : Compute hash of temp DB
+
+API --> UI : ReplayResult\n{hash: "ABC...", count: N}
+
+UI -> API : GET /api/v1/state
+API --> UI : {current_hash: "ABC..."}
+
+UI -> UI : Compare:\nreplay_hash == current_hash?
+UI --> USER : "SRA = 100% ✓\nSystem is deterministic"
+
+@enduml

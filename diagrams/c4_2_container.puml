@@ -1,57 +1,45 @@
 @startuml C4_Container
 !include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
 
-title Container Diagram - TOOL System Architecture
+title Container Diagram - TOOL: Event-Sourced Instruction Memory
 
-Person(user, "User", "Developer/researcher testing the system")
+Person(user, "User", "Developer/researcher interacting via Agent.UI")
 
 System_Boundary(tool, "TOOL System") {
-    Container(agentui, "Agent.UI", "React 19 / Vite", "Frontend for chat, search, state view, admin CRUD, replay trigger. Calls Ollama directly for LLM responses")
-
-    Container(api, "TOOL API", ".NET 9 / ASP.NET Core", "REST API with modules: SeedProcessing, MemoryManagement, AgentOperations, Admin, Replay")
-
-    Container(promoter, "Promoter Service", ".NET Background Service", "Consumes EVENTS, validates, emits DELTAS")
-
-    Container(projector, "Delta Projector", ".NET Background Service", "Consumes DELTAS, updates SQLite projection")
-
-    ContainerDb(sqlite, "Projection DB", "SQLite + FTS5", "Tables: im_items_current, im_items_history, source_bindings. Full-text search via FTS5")
+    Container(ui, "Agent.UI", "React 19 / Vite", "Frontend: chat, search, admin CRUD, replay")
+    Container(api, "TOOL API", ".NET 9 / ASP.NET Core", "REST API: Seed, Memory, Admin, Agent, Replay")
+    Container(promoter, "Promoter Service", ".NET Background Service", "Validates EVENTS, applies policy, emits DELTAS + AUDITS")
+    Container(projector, "Delta Projector", ".NET Background Service", "Consumes DELTAS, updates SQLite")
+    ContainerDb(sqlite, "SQLite + FTS5", "Projection DB", "im_items_current, im_items_history, im_fts")
 }
 
-System_Ext(nats, "NATS JetStream", "Event streaming with durable streams: EVENTS, DELTAS")
+System_Ext(nats, "NATS JetStream", "3 durable streams: EVENTS, DELTAS, AUDITS")
 System_Ext(github, "GitHub", "Rule source repository")
 System_Ext(ollama, "Ollama", "Local LLM (llama3)")
 
-' User interactions
-Rel(user, agentui, "Uses browser", "HTTP :3000")
+Rel(user, ui, "Browser", "HTTP :3000")
+Rel(ui, api, "REST API", "HTTP :5293")
+Rel(api, ollama, "Chat with compiled rules", "HTTP :11434")
 
-' Agent.UI interactions
-Rel(agentui, api, "compile-memory, search, state, admin CRUD, replay", "HTTP :5293")
-Rel(agentui, ollama, "Chat completions with compiled memory", "HTTP :11434")
+Rel(github, api, "Webhook", "POST /api/v1/seed")
 
-' GitHub webhook
-Rel(github, api, "POST /api/v1/seed", "Webhook")
+Rel(api, nats, "Publish", "EVENTS (evt.>)")
+Rel(promoter, nats, "Subscribe EVENTS\nPublish DELTAS + AUDITS", "NATS")
+Rel(projector, nats, "Subscribe", "DELTAS (delta.>)")
+Rel(projector, sqlite, "UPSERT", "SQL")
+Rel(api, sqlite, "FTS5 query", "SQL")
 
-' Internal TOOL flows
-Rel(api, nats, "Publishes to EVENTS stream", "NATS")
-Rel(promoter, nats, "Subscribes EVENTS, publishes DELTAS", "NATS")
-Rel(projector, nats, "Subscribes DELTAS", "NATS")
-Rel(projector, sqlite, "UPSERT rules", "SQL")
-Rel(api, sqlite, "FTS5 queries for memory compilation", "SQL")
-
-note right of agentui
-  Agent.UI handles LLM calls:
-  1. Get compiled memory from TOOL API
-  2. Send to Ollama with memory injected
-  3. Display response with citations
+note right of nats
+  **JetStream Streams:**
+  EVENTS - all proposed changes
+  DELTAS - approved changes only
+  AUDITS - all promoter decisions
 end note
 
-note bottom of api
-  API Modules:
-  - /api/v1/seed (GitHub webhooks)
-  - /api/v1/compile-memory, /state, /search, /why
-  - /api/v1/admin/rules (CRUD)
-  - /api/v1/admin/replay
-  - /agent/{ns}/memory, /chat, /health
+note bottom of promoter
+  **Policy Decisions:**
+  skip | defer | upsert | retract
+  All logged to AUDITS stream
 end note
 
 @enduml
